@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SihhaTek — Connexion</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 50%, #f0f9ff 100%);
+        }
+
+        .login-bg-pattern {
+            position: fixed;
+            inset: 0;
+            opacity: 0.03;
+            background-image:
+                radial-gradient(circle at 25% 25%, var(--primary-700) 1px, transparent 1px),
+                radial-gradient(circle at 75% 75%, var(--primary-700) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+
+        .login-container {
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .login-hospital-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: var(--neutral-50);
+            border: 1px solid var(--neutral-200);
+            border-radius: var(--radius-full);
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-5);
+        }
+
+        .login-hospital-badge svg {
+            width: 14px;
+            height: 14px;
+            color: var(--primary-600);
+        }
+
+        .input-group-icon {
+            position: relative;
+        }
+
+        .input-group-icon svg {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+        }
+
+        .input-group-icon .form-input {
+            padding-left: 40px;
+        }
+
+        .forgot-link {
+            font-size: 12px;
+            color: var(--primary-700);
+            text-align: right;
+            display: block;
+            margin-top: var(--space-1);
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-bg-pattern"></div>
+
+    <div class="page-center">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="login-logo">S</div>
+                    <h1>SihhaTek</h1>
+                    <p>Plateforme d'aide a la decision medicale</p>
+                    <div style="margin-top: 16px;">
+                        <span class="login-hospital-badge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 21h18" />
+                                <path d="M5 21V7l8-4v18" />
+                                <path d="M19 21V11l-6-4" />
+                                <path d="M9 9h1" />
+                                <path d="M9 13h1" />
+                                <path d="M9 17h1" />
+                            </svg>
+                            CHU Hassan II — Fes
+                        </span>
+                    </div>
+                </div>
+                <div class="login-body">
+                    <div class="form-group">
+                        <label class="form-label">Identifiant medecin</label>
+                        <div class="input-group-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            <input type="text" class="form-input" placeholder="Ex: DR-00421" value="DR-00421">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mot de passe</label>
+                        <div class="input-group-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                            <input type="password" class="form-input" placeholder="Entrer le mot de passe"
+                                value="password123">
+                        </div>
+                        <a href="#" class="forgot-link">Mot de passe oublie ?</a>
+                    </div>
+                    <button class="btn btn-primary btn-lg" style="width: 100%; margin-top: 4px;"
+                        onclick="window.location.href='search.html'">
+                        Se connecter
+                    </button>
+                </div>
+                <div class="login-footer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round"
+                        style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;color:var(--severity-warning)">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                    </svg>
+                    Outil d'aide a la decision — La decision revient au medecin traitant
+                </div>
+            </div>
+            <p style="text-align:center; margin-top:20px; font-size:11px; color:var(--text-muted);">
+                SihhaTek v1.0 — Region Fes-Meknes — Conformite Loi 09-08 (CNDP)
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>
