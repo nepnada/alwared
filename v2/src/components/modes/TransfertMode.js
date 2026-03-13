@@ -160,7 +160,7 @@ export default function TransfertMode() {
                                 <pre style={{ fontSize: 12, lineHeight: 1.7, fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'pre-wrap', color: 'var(--text-secondary)', background: 'var(--neutral-50)', padding: 20, borderRadius: 'var(--radius-md)' }}>
                                     {`DOSSIER DE TRANSFERT MEDICAL
 ===========================
-Reference: TRF-2026-${Math.floor(Math.random() * 9000 + 1000)}
+Reference: TRF-2026-4782
 Date: ${new Date().toLocaleDateString('fr-FR')}
 
 PATIENT
@@ -192,7 +192,7 @@ DERNIERS EXAMENS
 ACCES TEMPORAIRE: 72 heures
 CONFORMITE: Loi 09-08 (CNDP) — Consentement patient obtenu
 
-Ce resume a ete genere automatiquement par SihhaTek.
+Ce resume a ete genere automatiquement par Alwarid.
 Les donnees completes sont accessibles via le DMP centralise.`}
                                 </pre>
                             </div>
@@ -234,7 +234,7 @@ Les donnees completes sont accessibles via le DMP centralise.`}
                                     padding: 16, gap: 2,
                                     boxShadow: '0 8px 32px rgba(15,118,110,0.2)'
                                 }}>
-                                    {Array.from({ length: 100 }).map((_, i) => (<div key={i} style={{ background: Math.random() > 0.45 ? 'var(--primary-800)' : 'white', borderRadius: 1 }} />))}
+                                    {Array.from({ length: 100 }).map((_, i) => (<div key={i} style={{ background: ((i * 13 + 7) % 17) > 7 ? 'var(--primary-800)' : 'white', borderRadius: 1 }} />))}
                                 </div>
                                 <div className="badge badge-success" style={{ fontSize: 13, padding: '6px 16px', marginBottom: 12 }}>Transfert envoye avec succes</div>
                                 <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>

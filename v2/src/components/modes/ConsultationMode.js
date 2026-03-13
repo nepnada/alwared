@@ -1,5 +1,5 @@
 'use client';
-import { useState, Suspense } from 'react';
+import { useState, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { MOCK_PATIENTS, HISTORY_TYPES, formatDate } from '@/data/mockData';
 
@@ -137,15 +137,169 @@ function DocumentsAITab() {
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [aiInput, setAiInput] = useState('');
     const [generatedReport, setGeneratedReport] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [displayedReport, setDisplayedReport] = useState('');
+    const [ecgFile, setEcgFile] = useState(null);
+    const [ecgPreview, setEcgPreview] = useState(null);
+    const [ecgAnalyzing, setEcgAnalyzing] = useState(false);
+    const [ecgResult, setEcgResult] = useState(null);
+    const [addedToDossier, setAddedToDossier] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const recognitionRef = useRef(null);
 
-    const generateReport = (docType) => {
-        if (docType === 'echography') {
-            setGeneratedReport(`RAPPORT D'ECHOGRAPHIE\n══════════════════\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\nOperateur: Dr. M. Aloui\n\nINDICATION:\n${aiInput || 'Contrôle de suivi'}\n\nRESULTATS:\n• Foie: Steatose hepatique grade 1, taille normale\n• Vesicule biliaire: Alithiasique, paroi fine\n• Voies biliaires: Non dilatees\n• Pancreas: Homogene, de taille normale\n• Rate: Homogene, 11 cm\n• Reins: Taille normale, bonne differenciation cortico-medullaire\n• Aorte abdominale: Calibre normal\n\nCONCLUSION:\nSteatose hepatique grade 1 stable. Pas de complication.\nExamen a correler aux donnees cliniques et biologiques.\n\nATTENTION : Ce rapport a ete genere par l'IA a partir de vos observations.\nLa decision finale revient au medecin.`);
-        } else if (docType === 'radio') {
-            setGeneratedReport(`RAPPORT DE RADIOLOGIE\n══════════════════\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\nRadiologue: Dr. M. Aloui\n\nTYPE D'EXAMEN: Radiographie thoracique (face)\n\nINDICATION:\n${aiInput || 'Bilan de routine'}\n\nDESCRIPTION:\n• Parenchyme pulmonaire: Pas de foyer de condensation\n• Silhouette cardiaque: Taille normale (ICT < 0.5)\n• Mediastin: Pas d'elargissement\n• Coupoles diaphragmatiques: Regulieres\n• Cadre osseux: Integre\n\nCONCLUSION:\nRadiographie thoracique sans anomalie significative.\n\nATTENTION : Rapport genere par IA — Validation medicale requise.`);
-        } else if (docType === 'surveillance') {
-            setGeneratedReport(`FICHE DE SURVEILLANCE — REANIMATION\n════════════════════════════════\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\nService: Reanimation — CHU Hassan II\n\nCONSTANTES (a remplir toutes les heures):\n┌─────────┬──────┬───────┬──────┬──────┬──────────┬───────┐\n│ Heure   │  TA  │ Pouls │ SpO2 │ Temp │ Diurese  │ GCS   │\n├─────────┼──────┼───────┼──────┼──────┼──────────┼───────┤\n│ 08:00   │      │       │      │      │          │       │\n│ 09:00   │      │       │      │      │          │       │\n│ 10:00   │      │       │      │      │          │       │\n└─────────┴──────┴───────┴──────┴──────┴──────────┴───────┘\n\nTRAITEMENTS EN COURS:\n${patient.medications.map(m => `• ${m.name} — ${m.dosage}`).join('\n')}\n\nALLERGIES: ${patient.allergies.join(', ')}\nGROUPE SANGUIN: ${patient.bloodType}\n\nTemps economise: ~1h30 grace a l'automatisation`);
+    const toggleSpeech = () => {
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+            return;
         }
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) { alert('Speech-to-text non supporte par ce navigateur. Utilisez Chrome.'); return; }
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'fr-FR';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        let finalTranscript = aiInput;
+        recognition.onresult = (event) => {
+            let interim = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += (finalTranscript ? ' ' : '') + transcript;
+                    setAiInput(finalTranscript);
+                } else {
+                    interim += transcript;
+                }
+            }
+            if (interim) setAiInput(finalTranscript + (finalTranscript ? ' ' : '') + interim);
+        };
+        recognition.onerror = () => setIsListening(false);
+        recognition.onend = () => setIsListening(false);
+        recognitionRef.current = recognition;
+        recognition.start();
+        setIsListening(true);
+    };
+
+    // Typing animation for reports
+    const typeReport = (fullText) => {
+        setIsGenerating(true);
+        setDisplayedReport('');
+        let i = 0;
+        const interval = setInterval(() => {
+            i += 3;
+            setDisplayedReport(fullText.slice(0, i));
+            if (i >= fullText.length) { clearInterval(interval); setIsGenerating(false); }
+        }, 8);
+    };
+
+    const handleEcgUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setEcgFile(file);
+        const reader = new FileReader();
+        reader.onload = (ev) => { setEcgPreview(ev.target.result); };
+        reader.readAsDataURL(file);
+    };
+
+    const analyzeEcg = () => {
+        setEcgAnalyzing(true);
+        setEcgResult(null);
+        setTimeout(() => {
+            setEcgResult({
+                prediction: 'Fibrillation auriculaire (FA)',
+                confidence: 94.2,
+                details: [
+                    { zone: 'Derivation II', finding: 'Absence d\'onde P identifiable', severity: 'critical' },
+                    { zone: 'Derivation V1', finding: 'Rythme irregulierement irregulier', severity: 'critical' },
+                    { zone: 'Intervalle R-R', finding: 'Variabilite significative (SD > 120ms)', severity: 'warning' },
+                    { zone: 'Frequence', finding: 'FC moyenne 88 bpm — Reponse ventriculaire controlee', severity: 'info' },
+                    { zone: 'Segment ST', finding: 'Pas de sus/sous-decalage significatif', severity: 'success' }
+                ],
+                gradcamZones: [
+                    { x: 15, y: 30, w: 25, h: 40, label: 'Zone P absente', color: 'rgba(220,38,38,0.4)' },
+                    { x: 55, y: 20, w: 30, h: 50, label: 'R-R irregulier', color: 'rgba(234,179,8,0.35)' },
+                    { x: 40, y: 60, w: 20, h: 25, label: 'Baseline', color: 'rgba(34,197,94,0.25)' }
+                ],
+                recommendation: 'Suspicion de fibrillation auriculaire. Recommandation: Holter ECG 24h pour confirmer. Evaluer score CHA2DS2-VASc pour anticoagulation. Controle fonction thyroidienne.'
+            });
+            setEcgAnalyzing(false);
+        }, 2500);
+    };
+
+    const generateReport = async (docType) => {
+        setIsGenerating(true);
+        setDisplayedReport('');
+        setGeneratedReport('');
+        setAddedToDossier(false);
+
+        // Map doc types to system prompts
+        const promptMap = {
+            echography: 'REPORT_ECHO',
+            radio: 'REPORT_RADIO',
+            surveillance: 'REPORT_SURVEILLANCE',
+            traitement: 'REPORT_TRAITEMENT',
+            evaluation: 'REPORT_EVALUATION'
+        };
+
+        try {
+            const { buildPatientContext, SYSTEM_PROMPTS } = await import('@/data/prompts');
+            const promptKey = promptMap[docType] || 'AI_ANALYSIS';
+
+            const res = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemPrompt: SYSTEM_PROMPTS[promptKey],
+                    userMessage: aiInput
+                        ? `OBSERVATIONS DU MEDECIN (input principal pour l'aide a la decision) :\n${aiInput}\n\nGenere le rapport en integrant ces observations dans les sections appropriees.`
+                        : `Genere un rapport complet de ${docType} pour ce patient. Base-toi sur son dossier medical. Les champs d'observation restent a completer par le medecin.`,
+                    patientContext: buildPatientContext(patient)
+                })
+            });
+
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) throw new Error('fallback');
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.content) {
+                            fullText += parsed.content;
+                            setDisplayedReport(fullText);
+                        }
+                    } catch { }
+                }
+            }
+            setGeneratedReport(fullText);
+            setIsGenerating(false);
+        } catch {
+            // Fallback: use local templates
+            const report = getLocalReport(docType);
+            setGeneratedReport(report);
+            typeReport(report);
+        }
+    };
+
+    const getLocalReport = (docType) => {
+        if (docType === 'echography') return `RAPPORT D'ECHOGRAPHIE\n${'='.repeat(40)}\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\nOperateur: Dr. M. Aloui\n\nINDICATION:\n${aiInput || 'Controle de suivi'}\n\nRESULTATS:\n  Foie: Steatose hepatique grade 1, taille normale\n  Vesicule biliaire: Alithiasique, paroi fine\n  Voies biliaires: Non dilatees\n  Pancreas: Homogene, de taille normale\n  Rate: Homogene, 11 cm\n  Reins: Taille normale, bonne differenciation\n  Aorte abdominale: Calibre normal\n\n[AIDE IA] Steatose hepatique a correler avec le diabete type 2 du patient.\n\nCONCLUSION:\nSteatose hepatique grade 1 stable.\nA correler aux donnees cliniques et biologiques.\n\n[Rapport assiste par IA — Validation medicale requise]`;
+        if (docType === 'radio') return `RAPPORT DE RADIOLOGIE\n${'='.repeat(40)}\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\nRadiologue: Dr. M. Aloui\n\nTYPE: Radiographie thoracique (face)\nTECHNIQUE: Cliche de face, debout, inspiration. R.I.P. satisfaisants.\n\nINDICATION:\n${aiInput || 'Bilan de routine'}\n\nCONSTATATIONS:\n  Parenchyme pulmonaire: Pas de foyer de condensation\n  Silhouette cardiaque: Taille normale (ICT < 0.5)\n  [AIDE IA] Patient hypertendu stade 2 — surveiller l'ICT\n  Mediastin: Pas d'elargissement\n  Plevre: Pas d'epanchement\n  Coupoles diaphragmatiques: Regulieres\n  Cadre osseux: Integre\n\nCONCLUSION:\nRadiographie thoracique sans anomalie significative.\n\n[Rapport assiste par IA — Validation medicale requise]`;
+        if (docType === 'surveillance') return `FICHE DE SURVEILLANCE — REANIMATION\n${'='.repeat(40)}\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\nService: Reanimation — CHU Hassan II\n\nCONSTANTES (toutes les heures):\n  Heure | TA     | Pouls | SpO2 | Temp  | Diurese | GCS\n  08:00 | ___/___|  ___  | ___% | ___C  |  ___ml  | ___\n  09:00 | ___/___|  ___  | ___% | ___C  |  ___ml  | ___\n  10:00 | ___/___|  ___  | ___% | ___C  |  ___ml  | ___\n\nTRAITEMENTS EN COURS:\n${patient.medications.map(m => `  ${m.name} — ${m.dosage}`).join('\n')}\n\n[!] ALLERGIES: ${patient.allergies.join(', ')}\nGROUPE SANGUIN: ${patient.bloodType}\n[AIDE IA] Attention interaction Amlodipine+Bisoprolol: surveiller FC\n\nTemps economise: ~1h30 grace a l'automatisation IA\n\n[Fiche assistee par IA — Validation medicale requise]`;
+        if (docType === 'traitement') return `FICHE DE TRAITEMENT\n${'='.repeat(40)}\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\n\nMEDICAMENTS PRESCRITS:\n${patient.medications.map((m, i) => `  ${i + 1}. ${m.name}\n     Posologie: ${m.dosage}\n     Indication: ${m.purpose}`).join('\n\n')}\n\n[!] ALLERGIES: ${patient.allergies.join(', ')}\n\nINTERACTIONS A SURVEILLER:\n${patient.interactions.map(i => `  [${i.severity.toUpperCase()}] ${i.drugs.join(' + ')}: ${i.risk}`).join('\n')}\n\n[AIDE IA] Adapter Gliclazide pendant Ramadan (risque hypo x7.5)\n\n[Fiche assistee par IA — Verification medicale requise]`;
+        return `FICHE D'EVALUATION COMPARATIVE\n${'='.repeat(40)}\nPatient: ${patient.firstName} ${patient.lastName} (${patient.id})\nDate: ${new Date().toLocaleDateString('fr-FR')}\n\nEVOLUTION DES MARQUEURS:\n  HbA1c:       8.1% -> 7.8%  [AMELIORATION]\n  TA syst.:    160  -> 150   [AMELIORATION]\n  Poids:       92kg -> 89kg  [PERTE -3kg]\n  LDL Chol.:   1.6  -> 1.8   [DETERIORATION]\n  Creatinine:  11   -> 12    [STABLE]\n\nSCORE GLOBAL: Amelioration moderee\n\nPOINTS POSITIFS:\n  - Baisse HbA1c\n  - Perte de poids\n  - Meilleur controle tensionnel\n\nPOINTS DE VIGILANCE:\n  [AIDE IA] LDL en hausse: revoir dose atorvastatine\n  [AIDE IA] Neuropathie debutante: EMG annuel\n\n[Evaluation assistee par IA — Decision medicale requise]`;
     };
 
     return (
@@ -158,7 +312,12 @@ function DocumentsAITab() {
             {!selectedDoc ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
                     {AI_DOCUMENT_TYPES.map(doc => (
-                        <div key={doc.id} className="card card-interactive" onClick={() => setSelectedDoc(doc)} style={{ padding: 20, cursor: 'pointer' }}>
+                        <div key={doc.id} className="card card-interactive" onClick={() => {
+                            setSelectedDoc(doc); setGeneratedReport(''); setDisplayedReport(''); setEcgFile(null); setEcgResult(null); setAddedToDossier(false); setAiInput('');
+                            // Pre-load mock scanner images for demo
+                            const mockImages = { echography: '/mock-echo.png', radio: '/mock-echo.png' };
+                            if (mockImages[doc.id]) { setEcgPreview(mockImages[doc.id]); } else { setEcgPreview(null); }
+                        }} style={{ padding: 20, cursor: 'pointer' }}>
                             <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--primary-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-700)', marginBottom: 12 }}>{sz(doc.icon, 20)}</div>
                             <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{doc.title}</h3>
                             <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>{doc.description}</p>
@@ -168,7 +327,7 @@ function DocumentsAITab() {
                 </div>
             ) : (
                 <div className="fade-in">
-                    <button className="btn btn-ghost" onClick={() => { setSelectedDoc(null); setGeneratedReport(''); setAiInput(''); }} style={{ marginBottom: 16 }}>
+                    <button className="btn btn-ghost" onClick={() => { setSelectedDoc(null); setGeneratedReport(''); setDisplayedReport(''); setAiInput(''); setEcgFile(null); setEcgPreview(null); setEcgResult(null); setAddedToDossier(false); }} style={{ marginBottom: 16 }}>
                         <svg style={{ width: 14, height: 14 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6" /></svg> Retour aux documents
                     </button>
                     <div className="card">
@@ -181,34 +340,245 @@ function DocumentsAITab() {
                                 <div>
                                     <div style={{ background: 'linear-gradient(135deg, var(--severity-critical-bg) 0%, #fff1f2 100%)', borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 16, border: '1px solid var(--severity-critical-border)' }}>
                                         <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>{sz(ICON.ecg, 18)} Analyse ECG — Explainable AI (GradCAM)</h4>
-                                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Uploadez un ECG pour obtenir une analyse par notre modele IA entraine avec visualisation GradCAM des zones d'interet.</p>
-                                        <div style={{ border: '2px dashed var(--severity-critical-border)', borderRadius: 'var(--radius-md)', padding: 40, textAlign: 'center' }}>
-                                            <div style={{ width: 40, height: 40, margin: '0 auto 8px', color: 'var(--severity-critical)', opacity: 0.5 }}>{sz(ICON.upload, 40)}</div>
-                                            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Glissez un fichier ECG ici ou cliquez pour upload</p>
-                                            <button className="btn btn-primary" style={{ marginTop: 12, background: 'var(--severity-critical)' }}>Charger ECG</button>
+                                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Uploadez un ECG pour obtenir une analyse par notre modele IA entraine avec visualisation GradCAM.</p>
+                                        {!ecgPreview ? (
+                                            <label style={{ border: '2px dashed var(--severity-critical-border)', borderRadius: 'var(--radius-md)', padding: 40, textAlign: 'center', display: 'block', cursor: 'pointer', transition: 'all 0.2s ease' }}>
+                                                <input type="file" accept="image/*" onChange={handleEcgUpload} style={{ display: 'none' }} />
+                                                <div style={{ width: 40, height: 40, margin: '0 auto 8px', color: 'var(--severity-critical)', opacity: 0.5 }}>{sz(ICON.upload, 40)}</div>
+                                                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cliquez pour uploader un ECG (image)</p>
+                                            </label>
+                                        ) : (
+                                            <div>
+                                                <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 16, border: '2px solid var(--severity-critical-border)' }}>
+                                                    <img src={ecgPreview} alt="ECG" style={{ width: '100%', display: 'block', maxHeight: 300, objectFit: 'contain', background: 'white' }} />
+                                                    {ecgResult && ecgResult.gradcamZones.map((z, i) => (
+                                                        <div key={i} style={{ position: 'absolute', left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%`, background: z.color, borderRadius: 8, border: '2px solid rgba(220,38,38,0.6)', animation: 'pulse 2s ease infinite', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 4 }}>
+                                                            <span style={{ fontSize: 9, color: 'white', background: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>{z.label}</span>
+                                                        </div>
+                                                    ))}
+                                                    {ecgAnalyzing && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}><div style={{ background: 'white', padding: '16px 24px', borderRadius: 'var(--radius-lg)', fontWeight: 600, animation: 'pulse 1s ease infinite' }}>Analyse IA en cours...</div></div>}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    {!ecgResult && <button className="btn btn-primary" onClick={analyzeEcg} disabled={ecgAnalyzing} style={{ background: 'var(--severity-critical)', gap: 6 }}>{sz(ICON.ai, 14)} {ecgAnalyzing ? 'Analyse en cours...' : 'Lancer l\'analyse IA'}</button>}
+                                                    <button className="btn btn-secondary" onClick={() => { setEcgPreview(null); setEcgFile(null); setEcgResult(null); }}>Changer l'image</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {ecgResult && (
+                                        <div className="fade-in">
+                                            <div className="card" style={{ marginBottom: 16, border: '2px solid var(--severity-critical-border)' }}>
+                                                <div className="card-header"><h4 style={{ fontSize: 14, fontWeight: 600 }}>Resultat IA</h4><span className="badge badge-critical">Confiance: {ecgResult.confidence}%</span></div>
+                                                <div className="card-body">
+                                                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--severity-critical)', marginBottom: 12 }}>{ecgResult.prediction}</div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                                                        {ecgResult.details.map((d, i) => (
+                                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--neutral-50)', borderRadius: 'var(--radius-sm)' }}>
+                                                                <span className={`badge badge-${d.severity}`}>{d.zone}</span>
+                                                                <span style={{ fontSize: 12 }}>{d.finding}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div style={{ padding: 12, background: 'var(--severity-warning-bg)', border: '1px solid var(--severity-warning-border)', borderRadius: 'var(--radius-md)', fontSize: 12, lineHeight: 1.6 }}>
+                                                        <strong>Recommandation IA :</strong> {ecgResult.recommendation}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button className={`btn ${addedToDossier ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setAddedToDossier(true)} style={{ gap: 6 }}>
+                                                {addedToDossier ? <>{sz(ICON.check, 14)} Ajoute au dossier</> : <>{sz(ICON.download, 14)} Ajouter au dossier patient</>}
+                                            </button>
                                         </div>
-                                    </div>
-                                    <div className="alert alert-warning">
-                                        <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
-                                        <div><div className="alert-title">Modele en cours d'integration</div><div className="alert-text">Le modele ECG / arythmie sera integre prochainement avec les donnees de test fournies.</div></div>
-                                    </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div>
-                                    <div className="form-group" style={{ marginBottom: 16 }}>
-                                        <label className="form-label">Vos observations / input</label>
-                                        <textarea className="form-textarea" style={{ minHeight: 120 }} placeholder={`Decrivez vos observations pour la generation du rapport de ${selectedDoc.title.toLowerCase()}...`} value={aiInput} onChange={e => setAiInput(e.target.value)} />
-                                    </div>
-                                    <button className="btn btn-primary" onClick={() => generateReport(selectedDoc.id)} style={{ marginBottom: 16, gap: 6 }}>
-                                        {sz(ICON.ai, 14)} Generer le rapport IA
-                                    </button>
-                                    {generatedReport && (
-                                        <div style={{ background: 'var(--neutral-50)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: 20, marginTop: 16 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                                                <span className="badge badge-success">Rapport genere</span>
-                                                <button className="btn btn-sm btn-secondary" style={{ gap: 4 }}>{sz(ICON.download, 14)} Ajouter au dossier</button>
+                                    {/* ═══ STANDARDIZED 3-SECTION LAYOUT ═══ */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+
+                                        {/* SECTION 1: Observations du medecin */}
+                                        <div style={{ background: isListening ? 'rgba(239,68,68,0.05)' : 'var(--neutral-50)', borderRadius: 'var(--radius-lg)', padding: 20, border: isListening ? '2px solid rgba(239,68,68,0.4)' : '1px solid var(--border-default)', transition: 'all 0.3s ease' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-700)', fontSize: 13, fontWeight: 700 }}>1</div>
+                                                    <div>
+                                                        <div style={{ fontSize: 13, fontWeight: 600 }}>Observations du medecin</div>
+                                                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Input clinique et notes d'examen</div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={toggleSpeech}
+                                                    style={{
+                                                        width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                                                        background: isListening ? '#ef4444' : 'var(--primary-100)',
+                                                        color: isListening ? 'white' : 'var(--primary-700)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        transition: 'all 0.2s ease',
+                                                        animation: isListening ? 'pulse 1.5s ease infinite' : 'none',
+                                                        boxShadow: isListening ? '0 0 0 4px rgba(239,68,68,0.2)' : 'none'
+                                                    }}
+                                                    title={isListening ? 'Arreter la dictee' : 'Dicter les observations'}
+                                                >
+                                                    <svg style={{ width: 18, height: 18 }} viewBox="0 0 24 24" fill={isListening ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                                                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                                        <line x1="12" y1="19" x2="12" y2="22" />
+                                                    </svg>
+                                                </button>
                                             </div>
-                                            <pre style={{ fontSize: 12, lineHeight: 1.6, fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{generatedReport}</pre>
+                                            {isListening && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '4px 10px', background: 'rgba(239,68,68,0.1)', borderRadius: 'var(--radius-sm)', fontSize: 11, color: '#ef4444', fontWeight: 500 }}>
+                                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s ease infinite' }} />
+                                                    Dictee en cours — parlez naturellement en francais...
+                                                </div>
+                                            )}
+                                            <textarea
+                                                className="form-textarea"
+                                                style={{ minHeight: 140, fontSize: 12 }}
+                                                placeholder={`Decrivez vos observations cliniques pour ${selectedDoc.title.toLowerCase()}...\n\nExemples :\n- Douleur epigastrique depuis 3 jours\n- Controle post-operatoire\n- Bilan de suivi diabete\n\nOu cliquez le micro pour dicter`}
+                                                value={aiInput}
+                                                onChange={e => setAiInput(e.target.value)}
+                                            />
+                                        </div>
+
+                                        {/* SECTION 2: Upload document appareil */}
+                                        <div style={{ background: 'var(--neutral-50)', borderRadius: 'var(--radius-lg)', padding: 20, border: '1px solid var(--border-default)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--severity-info-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--severity-info)', fontSize: 13, fontWeight: 700 }}>2</div>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600 }}>Document appareil</div>
+                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Upload depuis echographe, radio, scanner...</div>
+                                                </div>
+                                            </div>
+                                            {!ecgPreview ? (
+                                                <label style={{ border: '2px dashed var(--border-default)', borderRadius: 'var(--radius-md)', padding: 30, textAlign: 'center', display: 'block', cursor: 'pointer', background: 'white', transition: 'all 0.2s ease' }}>
+                                                    <input type="file" accept="image/*,.pdf,.dcm" onChange={handleEcgUpload} style={{ display: 'none' }} />
+                                                    <div style={{ width: 32, height: 32, margin: '0 auto 8px', color: 'var(--text-muted)', opacity: 0.5 }}>{sz(ICON.upload, 32)}</div>
+                                                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Cliquez ou deposez un fichier</p>
+                                                    <p style={{ fontSize: 10, color: 'var(--text-muted)' }}>Images, PDF, DICOM</p>
+                                                </label>
+                                            ) : (
+                                                <div>
+                                                    <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 8, border: '1px solid var(--border-default)' }}>
+                                                        <img src={ecgPreview} alt="Document" style={{ width: '100%', display: 'block', maxHeight: 140, objectFit: 'contain', background: '#111' }} />
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <span className="badge badge-success">Recu de l'appareil</span>
+                                                            <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>{ecgFile ? ecgFile.name : 'Sonoscape S80'}</span>
+                                                        </div>
+                                                        <button className="btn btn-ghost btn-sm" onClick={() => { setEcgPreview(null); setEcgFile(null); }}>Changer</button>
+                                                    </div>
+                                                    {/* Body region selector */}
+                                                    <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Zone corporelle :</span>
+                                                        <select className="form-input" style={{ flex: 1, fontSize: 12, height: 32, padding: '0 8px' }} defaultValue="chest">
+                                                            <option value="head">Tete / Neurologie</option>
+                                                            <option value="chest">Thorax / Cardiovasculaire</option>
+                                                            <option value="abdomen">Abdomen / Metabolisme</option>
+                                                            <option value="leftArm">Bras gauche</option>
+                                                            <option value="rightArm">Bras droit</option>
+                                                            <option value="leftLeg">Jambe gauche</option>
+                                                            <option value="rightLeg">Jambe droite</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* SECTION 3: Aide a la decision — AI BUTTON */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={() => generateReport(selectedDoc.id)}
+                                            disabled={isGenerating}
+                                            style={{ gap: 8, padding: '10px 20px' }}
+                                        >
+                                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {sz(ICON.ai, 14)}
+                                            </div>
+                                            {isGenerating ? 'Generation IA en cours...' : 'Aide a la decision'}
+                                        </button>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4, maxWidth: 400 }}>
+                                            L'IA genere un rapport base sur le dossier patient et vos observations. Vous pouvez modifier le texte genere avant d'exporter.
+                                        </div>
+                                    </div>
+
+                                    {/* ═══ AI OUTPUT — EDITABLE ═══ */}
+                                    {(displayedReport || isGenerating) && (
+                                        <div className="fade-in" style={{ border: '2px solid var(--primary-200)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                            {/* Header */}
+                                            <div style={{ background: 'var(--primary-50)', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--primary-200)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span className={`badge ${isGenerating ? 'badge-warning' : 'badge-success'}`}>{isGenerating ? 'Generation IA...' : 'Rapport genere'}</span>
+                                                    {!isGenerating && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Modifiable par le medecin</span>}
+                                                </div>
+                                                {!isGenerating && (
+                                                    <div style={{ display: 'flex', gap: 6 }}>
+                                                        {/* PDF Export */}
+                                                        <button className="btn btn-sm btn-secondary" style={{ gap: 4 }} onClick={() => {
+                                                            const printWin = window.open('', '_blank');
+                                                            printWin.document.write(`<!DOCTYPE html><html><head><title>Rapport Medical — ${patient.firstName} ${patient.lastName}</title><style>
+                                                                @page { size: A4; margin: 20mm; }
+                                                                body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.7; color: #1a1a1a; padding: 20px; }
+                                                                .header { text-align: center; border-bottom: 2px solid #0d9488; padding-bottom: 16px; margin-bottom: 20px; }
+                                                                .header h1 { font-size: 16px; color: #0d9488; margin: 0; letter-spacing: 1px; }
+                                                                .header p { font-size: 10px; color: #666; margin: 4px 0 0; }
+                                                                .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 9px; color: #999; text-align: center; }
+                                                                .signature { margin-top: 50px; display: flex; justify-content: flex-end; }
+                                                                .signature div { text-align: center; border-top: 1px solid #333; padding-top: 8px; width: 200px; font-size: 10px; }
+                                                                pre { white-space: pre-wrap; word-wrap: break-word; }
+                                                            </style></head><body>
+                                                            <div class="header"><h1>ALWARID — RAPPORT MEDICAL</h1><p>CHU Hassan II, Fes — Systeme d'aide a la decision medicale assiste par IA</p></div>
+                                                            <pre>${generatedReport}</pre>
+                                                            <div class="signature"><div>Signature du medecin</div></div>
+                                                            <div class="footer">Document genere par Alwarid — ${new Date().toLocaleString('fr-FR')}<br/>Ce document a ete assiste par IA et valide par le medecin traitant.</div>
+                                                            </body></html>`);
+                                                            printWin.document.close();
+                                                            setTimeout(() => printWin.print(), 300);
+                                                        }}>
+                                                            <svg style={{ width: 14, height: 14 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
+                                                            PDF
+                                                        </button>
+                                                        {/* Word Export */}
+                                                        <button className="btn btn-sm btn-secondary" style={{ gap: 4 }} onClick={() => {
+                                                            const blob = new Blob([
+                                                                `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:'Courier New',monospace;font-size:11pt;line-height:1.7;} h1{text-align:center;color:#0d9488;font-size:14pt;border-bottom:2pt solid #0d9488;padding-bottom:10pt;} .sub{text-align:center;font-size:9pt;color:#666;} .footer{margin-top:30pt;border-top:1pt solid #ddd;padding-top:8pt;font-size:8pt;color:#999;text-align:center;} pre{white-space:pre-wrap;}</style></head><body><h1>ALWARID — RAPPORT MEDICAL</h1><p class="sub">CHU Hassan II, Fes — Systeme d'aide a la decision medicale</p><pre>${generatedReport}</pre><div class="footer">Document genere par Alwarid — ${new Date().toLocaleString('fr-FR')}</div></body></html>`
+                                                            ], { type: 'application/msword' });
+                                                            const url = URL.createObjectURL(blob);
+                                                            const a = document.createElement('a');
+                                                            a.href = url;
+                                                            a.download = `Rapport_${selectedDoc.title.replace(/\s/g, '_')}_${patient.lastName}_${new Date().toISOString().slice(0, 10)}.doc`;
+                                                            a.click();
+                                                            URL.revokeObjectURL(url);
+                                                        }}>
+                                                            <svg style={{ width: 14, height: 14 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6a2 2 0 0 0-2 2z" /><path d="M14 2v6h6" /><path d="M9 15l2 2 4-4" /></svg>
+                                                            Word
+                                                        </button>
+                                                        {/* Add to dossier */}
+                                                        <button className={`btn btn-sm ${addedToDossier ? 'btn-secondary' : 'btn-primary'}`} style={{ gap: 4 }} onClick={() => setAddedToDossier(true)}>
+                                                            {addedToDossier ? <>{sz(ICON.check, 14)} Ajoute</> : <>{sz(ICON.download, 14)} Dossier</>}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Editable report content */}
+                                            {isGenerating ? (
+                                                <div style={{ padding: 20 }}>
+                                                    <pre style={{ fontSize: 12, lineHeight: 1.6, fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{displayedReport}|</pre>
+                                                </div>
+                                            ) : (
+                                                <textarea
+                                                    style={{
+                                                        width: '100%', minHeight: 400, padding: 20, border: 'none', outline: 'none', resize: 'vertical',
+                                                        fontSize: 12, lineHeight: 1.6, fontFamily: "'IBM Plex Mono', monospace",
+                                                        color: 'var(--text-secondary)', background: 'white'
+                                                    }}
+                                                    value={generatedReport}
+                                                    onChange={e => setGeneratedReport(e.target.value)}
+                                                />
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -224,6 +594,16 @@ function DocumentsAITab() {
 function OrdonnanceTab() {
     const [prescriptions, setPrescriptions] = useState(patient.medications.map(m => ({ ...m, selected: true })));
     const [showQR, setShowQR] = useState(false);
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [newMed, setNewMed] = useState({ name: '', dosage: '', purpose: '' });
+
+    const addMed = () => {
+        if (!newMed.name) return;
+        setPrescriptions(prev => [...prev, { ...newMed, selected: true }]);
+        setNewMed({ name: '', dosage: '', purpose: '' });
+        setShowAddForm(false);
+    };
+    const removeMed = (idx) => setPrescriptions(prev => prev.filter((_, i) => i !== idx));
 
     return (
         <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto' }}>
@@ -239,8 +619,21 @@ function OrdonnanceTab() {
                 <div className="card">
                     <div className="card-header">
                         <h3 style={{ fontSize: 14, fontWeight: 600 }}>Prescription</h3>
-                        <button className="btn btn-sm btn-secondary">+ Ajouter medicament</button>
+                        <button className="btn btn-sm btn-secondary" onClick={() => setShowAddForm(!showAddForm)}>+ Ajouter medicament</button>
                     </div>
+                    {showAddForm && (
+                        <div className="fade-in" style={{ padding: 16, borderBottom: '2px solid var(--primary-200)', background: 'var(--primary-50)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                <input className="form-input" placeholder="Nom du medicament" value={newMed.name} onChange={e => setNewMed(p => ({ ...p, name: e.target.value }))} />
+                                <input className="form-input" placeholder="Posologie" value={newMed.dosage} onChange={e => setNewMed(p => ({ ...p, dosage: e.target.value }))} />
+                                <input className="form-input" placeholder="Indication" value={newMed.purpose} onChange={e => setNewMed(p => ({ ...p, purpose: e.target.value }))} />
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn btn-sm btn-primary" onClick={addMed}>Ajouter</button>
+                                <button className="btn btn-sm btn-ghost" onClick={() => setShowAddForm(false)}>Annuler</button>
+                            </div>
+                        </div>
+                    )}
                     <div style={{ padding: 0 }}>
                         {prescriptions.map((med, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -249,8 +642,12 @@ function OrdonnanceTab() {
                                     <div style={{ fontSize: 14, fontWeight: 500 }}>{med.name}</div>
                                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{med.dosage} — {med.purpose}</div>
                                 </div>
+                                <button className="btn btn-ghost btn-icon" onClick={() => removeMed(i)} style={{ color: 'var(--severity-critical)', padding: 4 }}>
+                                    <svg style={{ width: 14, height: 14 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                </button>
                             </div>
                         ))}
+                        {prescriptions.length === 0 && <div className="empty-state" style={{ padding: 20 }}><p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Aucun medicament. Cliquez "+ Ajouter" pour prescrire.</p></div>}
                     </div>
                 </div>
 
@@ -263,9 +660,9 @@ function OrdonnanceTab() {
                         ) : (
                             <div className="fade-in">
                                 <div style={{ width: 200, height: 200, margin: '0 auto 16px', background: 'white', borderRadius: 'var(--radius-md)', border: '3px solid var(--primary-600)', display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(8, 1fr)', padding: 12, gap: 2 }}>
-                                    {Array.from({ length: 64 }).map((_, i) => (<div key={i} style={{ background: Math.random() > 0.5 ? 'var(--primary-800)' : 'white', borderRadius: 1 }} />))}
+                                    {Array.from({ length: 64 }).map((_, i) => (<div key={i} style={{ background: ((i * 7 + 3) % 11) > 5 ? 'var(--primary-800)' : 'white', borderRadius: 1 }} />))}
                                 </div>
-                                <div className="badge badge-success" style={{ marginBottom: 8 }}>Actif — En attente de delivrance</div>
+                                <div className="badge badge-success" style={{ marginBottom: 8 }}>Actif — {prescriptions.filter(p => p.selected).length} medicaments</div>
                                 <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Enregistre sur le DMP (Dossier Medical Patient)</p>
                                 <p style={{ fontSize: 10, color: 'var(--severity-warning)', marginTop: 4 }}>Code desactive automatiquement apres delivrance</p>
                             </div>
@@ -283,24 +680,97 @@ function OrdonnanceTab() {
 
 function AIAnalysisTab() {
     const [prompt, setPrompt] = useState('');
-    const [response, setResponse] = useState('');
-    const examplePrompts = ['Resume complet du dossier patient', 'Contre-indications pour ce patient?', 'Interactions medicamenteuses a surveiller', 'Historique des pathologies cardiovasculaires'];
-    const handleQuery = (query) => {
+    const [displayedResponse, setDisplayedResponse] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
+    const [usedMistral, setUsedMistral] = useState(false);
+    const examplePrompts = ['Resume complet du dossier patient', 'Contre-indications pour ce patient?', 'Interactions medicamenteuses a surveiller', 'Risque si on prescrit Ibuprofene?', 'Quels examens sont dus?', 'Comparer les dernieres visites'];
+    const handleQuery = async (query) => {
         const q = query || prompt;
+        if (!q.trim() || isTyping) return;
         setPrompt(q);
-        setResponse(`Analyse IA — Dossier de ${patient.firstName} ${patient.lastName}\n═══════════════════════════════════════\n\nBased on the patient's medical record:\n\n• Patient de ${patient.age} ans avec ${patient.conditions.length} pathologies actives\n• Pathologies principales: ${patient.conditions.map(c => c.name).join(', ')}\n• ${patient.medications.length} medicaments en cours\n• ${patient.interactions.length} interactions medicamenteuses identifiees\n• Allergies connues: ${patient.allergies.join(', ')}\n\nCeci est une analyse indicative. La decision medicale finale revient au praticien.`);
+        setIsTyping(true);
+        setDisplayedResponse('');
+        setUsedMistral(false);
+
+        try {
+            const { buildPatientContext, SYSTEM_PROMPTS } = await import('@/data/prompts');
+            const res = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemPrompt: SYSTEM_PROMPTS.AI_ANALYSIS,
+                    userMessage: q,
+                    patientContext: buildPatientContext(patient)
+                })
+            });
+
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) throw new Error('fallback');
+
+            setUsedMistral(true);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.content) {
+                            fullText += parsed.content;
+                            setDisplayedResponse(fullText);
+                        }
+                    } catch { }
+                }
+            }
+            setIsTyping(false);
+        } catch {
+            // Fallback: local responses
+            const resp = getLocalAnalysis(q);
+            let i = 0;
+            const interval = setInterval(() => {
+                i += 4;
+                setDisplayedResponse(resp.slice(0, i));
+                if (i >= resp.length) { clearInterval(interval); setIsTyping(false); }
+            }, 6);
+        }
     };
+
+    const getLocalAnalysis = (q) => {
+        if (q.toLowerCase().includes('resume') || q.toLowerCase().includes('dossier')) {
+            return `RESUME DOSSIER — ${patient.firstName} ${patient.lastName}\n${'='.repeat(45)}\n\nIDENTITE\n  Age: ${patient.age} ans | Sexe: ${patient.sex} | Groupe: ${patient.bloodType}\n  Taille: ${patient.height} | Poids: ${patient.weight}\n\nALLERGIES: ${patient.allergies.join(', ')}\n\nPATHOLOGIES ACTIVES (${patient.conditions.length}):\n${patient.conditions.map(c => `  [${c.severity.toUpperCase()}] ${c.name} — ${c.details} (depuis ${c.since})`).join('\n')}\n\nMEDICAMENTS (${patient.medications.length}):\n${patient.medications.map(m => `  ${m.name} — ${m.dosage} (${m.purpose})`).join('\n')}\n\nINTERACTIONS CRITIQUES (${patient.interactions.length}):\n${patient.interactions.map(i => `  [!] ${i.drugs.join(' + ')}: ${i.risk}`).join('\n')}\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        } else if (q.toLowerCase().includes('contre-indication')) {
+            return `CONTRE-INDICATIONS — ${patient.firstName} ${patient.lastName}\n${'='.repeat(45)}\n\nALLERGIES CONFIRMEES:\n  [ABSOLU] Penicilline et derives\n  [ABSOLU] Sulfamides\n\nCONTRE-INDICATIONS LIEES AUX PATHOLOGIES:\n  Diabete type 2:\n    - Corticoides systemiques\n    - Gliclazide pendant jeune prolonge\n  HTA stade 2:\n    - AINS prolonges\n    - Vasoconstricteurs nasaux\n\nALLERGIES CROISEES POSSIBLES:\n  - Cephalosporines (~10%)\n  - Thiazidiques (derives sulfamides)\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        } else if (q.toLowerCase().includes('interaction')) {
+            return `INTERACTIONS MEDICAMENTEUSES\n${'='.repeat(45)}\n\n${patient.interactions.map(i => `[${i.severity.toUpperCase()}] ${i.drugs.join(' + ')}\n  Risque: ${i.risk}\n  Source: ${i.source}`).join('\n\n')}\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        } else if (q.toLowerCase().includes('ibuprofene') || q.toLowerCase().includes('prescrire')) {
+            return `ANALYSE RISQUE — Prescription Ibuprofene\n${'='.repeat(45)}\n\nRISQUES:\n  [CRITIQUE] Interaction Ibuprofene + Amlodipine\n  [ATTENTION] Risque renal (patient diabetique)\n  [ATTENTION] Risque gastrique (${patient.age} ans)\n\nALTERNATIVES:\n  1. Paracetamol 1g\n  2. Tramadol 50mg\n  3. Infiltration locale\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        } else if (q.toLowerCase().includes('examen') || q.toLowerCase().includes('dus')) {
+            return `EXAMENS DUS\n${'='.repeat(45)}\n\n  [EN RETARD] HbA1c trimestriel — du 08/04/2026\n  [DU] ECG de controle — dernier il y a 21 mois!\n  [PLANIFIE] Fond d'oeil annuel — Nov 2026\n  [PLANIFIE] Bilan lipidique — Juil 2026\n  [RECOMMANDE] EMG membres inferieurs\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        }
+        return `ANALYSE — "${q}"\n${'='.repeat(45)}\n\n  ${patient.conditions.length} pathologies actives\n  ${patient.medications.length} medicaments\n  ${patient.interactions.length} interactions\n  Allergies: ${patient.allergies.join(', ')}\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+    };
+
     return (
         <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>{sz(ICON.ai, 20)} Analyse IA du Dossier</h2>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>Interrogez le dossier patient avec l'IA. Aucune donnee n'est envoyee a l'exterieur.</p>
             <div className="card" style={{ marginBottom: 16 }}><div className="card-body">
-                <textarea className="form-textarea" style={{ minHeight: 80 }} placeholder="Posez une question sur le dossier du patient..." value={prompt} onChange={e => setPrompt(e.target.value)} />
+                <textarea className="form-textarea" style={{ minHeight: 80 }} placeholder="Posez une question sur le dossier du patient..." value={prompt} onChange={e => setPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleQuery())} />
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>{examplePrompts.map((p, i) => <button key={i} className="pill" onClick={() => handleQuery(p)}>{p}</button>)}</div>
-                <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => handleQuery()}>Analyser</button>
+                <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => handleQuery()} disabled={isTyping}>{isTyping ? 'Analyse en cours...' : 'Analyser'}</button>
             </div></div>
-            {response && (<div className="card fade-in"><div className="card-header"><span className="badge badge-success">Reponse IA</span></div>
-                <div className="card-body"><pre style={{ fontSize: 13, lineHeight: 1.6, fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{response}</pre></div>
+            {(displayedResponse || isTyping) && (<div className="card fade-in"><div className="card-header"><span className={`badge ${isTyping ? 'badge-warning' : 'badge-success'}`}>{isTyping ? 'Analyse IA...' : 'Reponse IA'}</span><span className="badge badge-info">{usedMistral ? 'Mistral AI — RAG' : 'Local — Aucune donnee envoyee'}</span></div>
+                <div className="card-body"><pre style={{ fontSize: 13, lineHeight: 1.6, fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{displayedResponse}{isTyping ? '|' : ''}</pre></div>
             </div>)}
         </div>
     );

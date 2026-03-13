@@ -21,9 +21,8 @@ export default function LoginPage() {
         <div className="fade-in-up">
           <div className="login-card">
             <div className="login-header">
-              <div className="login-logo">S</div>
-              <h1>SihhaTek</h1>
-              <p>Plateforme d&apos;aide a la decision medicale</p>
+              <img src="/logo.png" alt="Alwarid" style={{ height: 180, marginBottom: 8 }} />
+              <p>Know the Patient in Seconds</p>
               <div style={{ marginTop: 16 }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -70,7 +69,7 @@ export default function LoginPage() {
             </div>
           </div>
           <p style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: 'var(--text-muted)' }}>
-            SihhaTek v2.0 — Region Fes-Meknes — Conformite Loi 09-08 (CNDP)
+            Alwarid v2.0 — Region Fes-Meknes — Conformite Loi 09-08 (CNDP)
           </p>
         </div>
       </div>

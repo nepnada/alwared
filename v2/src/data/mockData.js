@@ -59,7 +59,7 @@ export const MOCK_PATIENTS = [
                 conditions: ["Cephalees de tension chroniques (depuis 2021)"],
                 operations: [],
                 scans: [
-                    { type: "Scanner cerebral", date: "2021-09-14", lab: "Centre d'Imagerie Atlas, Fes", doctor: "Dr. Bennani", result: "Normal" }
+                    { type: "Scanner cerebral", date: "2021-09-14", lab: "Centre d'Imagerie Atlas, Fes", doctor: "Dr. Bennani", result: "Normal", image: "/scan-brain.png" }
                 ],
                 medications: ["Paracetamol 1g PRN"],
                 notes: "Scanner cerebral normal. Migraines gerees par paracetamol."
@@ -76,7 +76,7 @@ export const MOCK_PATIENTS = [
                 scans: [
                     { type: "ECG", date: "2024-06-20", lab: "CHU Hassan II, Fes", doctor: "Dr. Alaoui", result: "Arythmie sinusale" },
                     { type: "Echocardiographie", date: "2024-07-05", lab: "CHU Hassan II, Fes", doctor: "Dr. Alaoui", result: "Fraction d'ejection 55%, sans anomalie structurelle" },
-                    { type: "Radiographie thoracique", date: "2023-01-12", lab: "Clinique Ibn Sina, Fes", doctor: "Dr. Moussaoui", result: "Index cardiothoracique normal" }
+                    { type: "Radiographie thoracique", date: "2023-01-12", lab: "Clinique Ibn Sina, Fes", doctor: "Dr. Moussaoui", result: "Index cardiothoracique normal", image: "/scan-thorax.png" }
                 ],
                 medications: ["Amlodipine 10mg", "Bisoprolol 5mg", "Atorvastatine 20mg"],
                 notes: "Suivi cardiologique trimestriel. Derniere consultation : janvier 2026."
@@ -90,7 +90,7 @@ export const MOCK_PATIENTS = [
                 ],
                 operations: [],
                 scans: [
-                    { type: "Echographie abdominale", date: "2022-11-03", lab: "Centre Radio Fes Medina", doctor: "Dr. Tazi", result: "Steatose hepatique grade 1" },
+                    { type: "Echographie abdominale", date: "2022-11-03", lab: "Centre Radio Fes Medina", doctor: "Dr. Tazi", result: "Steatose hepatique grade 1", image: "/scan-abdomen.png" },
                     { type: "Bilan sanguin complet", date: "2026-01-08", lab: "Laboratoire Central Fes", doctor: "Dr. Karimi", result: "HbA1c 7.8%, Creatinine 12 mg/L, ASAT/ALAT normaux" }
                 ],
                 medications: ["Metformine 1000mg", "Gliclazide 60mg"],

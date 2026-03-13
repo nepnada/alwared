@@ -19,20 +19,88 @@ const ICN = {
     msgCircle: <svg style={{ width: 16, height: 16 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
 };
 
-function RegionDetail({ regionKey }) {
+function RegionDetail({ regionKey, onViewScan }) {
     const region = patient.bodyRegions[regionKey];
     if (!region) return null;
     const sevBadge = { critical: 'badge-critical', warning: 'badge-warning', caution: 'badge-neutral', stable: 'badge-success', info: 'badge-info' };
     const sevLabels = { critical: 'Critique', warning: 'Attention', caution: 'Surveillance', stable: 'Stable', info: 'Info' };
     return (
-        <div className="region-card">
-            <div className="region-card-title">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span className={`severity-dot ${region.severity === 'caution' ? 'warning' : region.severity}`} />
-                {region.label}
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{region.label}</span>
                 <span className={`badge ${sevBadge[region.severity] || 'badge-neutral'}`}>{sevLabels[region.severity]}</span>
             </div>
-            {region.conditions.length > 0 && (<div className="region-card-body" style={{ marginTop: 8 }}><ul>{region.conditions.map((c, i) => <li key={i}>{c}</li>)}</ul></div>)}
-            {region.medications?.length > 0 && (<div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>{region.medications.map((m, i) => <span key={i} className="tag">{m}</span>)}</div>)}
+
+            {/* Conditions */}
+            {region.conditions.length > 0 && (
+                <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--text-muted)', marginBottom: 6 }}>Conditions</div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.8 }}>
+                        {region.conditions.map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                </div>
+            )}
+
+            {/* Scans / Imagerie */}
+            {region.scans?.length > 0 && (
+                <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--primary-700)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {ICN.doc} Examens & Imagerie ({region.scans.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {region.scans.map((scan, i) => (
+                            <div key={i} style={{ padding: '8px 10px', background: 'var(--neutral-50)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', fontSize: 12 }}>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    {scan.image && (
+                                        <div onClick={() => onViewScan && onViewScan(scan)} style={{ width: 60, height: 60, borderRadius: 'var(--radius-sm)', overflow: 'hidden', cursor: 'pointer', flexShrink: 0, border: '1px solid var(--border-default)' }}>
+                                            <img src={scan.image} alt={scan.type} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            {scan.type}
+                                            {scan.image && <span className="badge badge-info" style={{ fontSize: 9, cursor: 'pointer' }} onClick={() => onViewScan && onViewScan(scan)}>Voir image</span>}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 8, color: 'var(--text-muted)', fontSize: 11, flexWrap: 'wrap' }}>
+                                            <span>{formatDate(scan.date)}</span>
+                                            <span>{scan.lab}</span>
+                                            <span>{scan.doctor}</span>
+                                        </div>
+                                        <div style={{ marginTop: 3, fontSize: 11, color: 'var(--text-secondary)' }}>{scan.result}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Operations */}
+            {region.operations?.length > 0 && (
+                <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--severity-warning)', marginBottom: 6 }}>Chirurgies</div>
+                    {region.operations.map((op, i) => (
+                        <div key={i} style={{ padding: '6px 10px', background: 'var(--severity-warning-bg)', border: '1px solid var(--severity-warning-border)', borderRadius: 'var(--radius-md)', fontSize: 12, marginBottom: 4 }}>
+                            <div style={{ fontWeight: 600 }}>{op.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDate(op.date)} — {op.hospital} — {op.surgeon}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Medications */}
+            {region.medications?.length > 0 && (
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {region.medications.map((m, i) => <span key={i} className="tag">{m}</span>)}
+                </div>
+            )}
+
+            {/* Notes */}
+            {region.notes && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>{region.notes}</div>
+            )}
         </div>
     );
 }
@@ -40,10 +108,11 @@ function RegionDetail({ regionKey }) {
 /* ── AI CHATBOT FOR URGENCE ── */
 function UrgenceChatbot() {
     const [messages, setMessages] = useState([
-        { role: 'system', text: `Assistant IA — Mode Urgence. Patient: ${patient.firstName} ${patient.lastName}, ${patient.age} ans. Groupe sanguin: ${patient.bloodType}. Allergies: ${patient.allergies.join(', ')}. Je suis pret a repondre a vos questions.' }` }
+        { role: 'system', text: `Assistant IA — Mode Urgence. Patient: ${patient.firstName} ${patient.lastName}, ${patient.age} ans. Groupe sanguin: ${patient.bloodType}. Allergies: ${patient.allergies.join(', ')}. Je reponds a partir du dossier patient uniquement.` }
     ]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [streamingText, setStreamingText] = useState('');
 
     const quickActions = [
         'Resume critique du patient',
@@ -52,29 +121,84 @@ function UrgenceChatbot() {
         'Protocole HTA urgente'
     ];
 
-    const handleSend = (text) => {
+    const handleSend = async (text) => {
         const q = text || input;
-        if (!q.trim()) return;
+        if (!q.trim() || isTyping) return;
         setMessages(prev => [...prev, { role: 'user', text: q }]);
         setInput('');
         setIsTyping(true);
+        setStreamingText('');
 
-        setTimeout(() => {
-            let response = '';
-            if (q.toLowerCase().includes('resume') || q.toLowerCase().includes('critique')) {
-                response = `RESUME CRITIQUE — ${patient.firstName} ${patient.lastName}\n\nPatient de ${patient.age} ans, ${patient.sex}\nGroupe sanguin: ${patient.bloodType}\n\nALLERGIES MAJEURES:\n${patient.allergies.map(a => `  - ${a}`).join('\n')}\n\nPATHOLOGIES ACTIVES:\n${patient.conditions.map(c => `  - ${c.name} (${c.severity}) — ${c.details}`).join('\n')}\n\nINTERACTIONS CRITIQUES:\n${patient.interactions.map(i => `  - ${i.drugs.join(' + ')}: ${i.risk}`).join('\n')}\n\nMEDICAMENTS EN COURS: ${patient.medications.length}\nContact urgence: ${patient.emergencyContact}`;
-            } else if (q.toLowerCase().includes('allergi') || q.toLowerCase().includes('contre-indication')) {
-                response = `ALLERGIES CONNUES:\n${patient.allergies.map(a => `  - ${a}`).join('\n')}\n\nCONTRE-INDICATIONS ABSOLUES:\n  - Penicilline et derives (amoxicilline, ampicilline)\n  - Sulfamides et derives\n  - Attention aux cephalosporines (allergie croisee possible ~10%)\n\nMEDICAMENTS A EVITER:\n  - Anti-inflammatoires: Ibuprofene (interaction Amlodipine)\n  - Gliclazide pendant Ramadan (risque hypo x7.5)`;
-            } else if (q.toLowerCase().includes('interaction')) {
-                response = `INTERACTIONS MEDICAMENTEUSES IDENTIFIEES:\n\n${patient.interactions.map(i => `[${i.severity.toUpperCase()}] ${i.drugs.join(' + ')}\n  Risque: ${i.risk}\n  Source: ${i.source}`).join('\n\n')}\n\nRECOMMANDATION: Surveillance renforcee de la frequence cardiaque (Amlodipine + Bisoprolol).`;
-            } else if (q.toLowerCase().includes('protocole') || q.toLowerCase().includes('hta')) {
-                response = `PROTOCOLE HTA URGENTE — Patient hypertendu stade 2\n\n1. Mesurer TA en position couchee et debout\n2. TA actuelle connue: 155/95 mmHg\n3. Traitement en cours: Amlodipine 10mg, Bisoprolol 5mg\n4. ATTENTION: Interaction Amlodipine + Bisoprolol (bradycardie)\n5. Surveiller FC — Ne pas descendre sous 50 bpm\n6. Si TA > 180/120: Nicardipine IV (attention allergies)\n7. ECG de controle recommande\n\nRappel: Allergies Penicilline et Sulfamides.`;
-            } else {
-                response = `Analyse en cours pour "${q}"...\n\nBasee sur le dossier de ${patient.firstName} ${patient.lastName}:\n- ${patient.conditions.length} pathologies actives identifiees\n- ${patient.medications.length} medicaments en cours\n- ${patient.interactions.length} interactions a surveiller\n\nPour une analyse plus precise, precisez votre question ou utilisez les raccourcis proposes.\n\nLa decision medicale finale revient au praticien.`;
+        try {
+            const { buildPatientContext } = await import('@/data/prompts');
+            const { SYSTEM_PROMPTS } = await import('@/data/prompts');
+            const res = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemPrompt: SYSTEM_PROMPTS.URGENCE_CHATBOT,
+                    userMessage: q,
+                    patientContext: buildPatientContext(patient)
+                })
+            });
+
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                // API key not set or error — fall back to local
+                throw new Error('fallback');
             }
-            setMessages(prev => [...prev, { role: 'ai', text: response }]);
-            setIsTyping(false);
-        }, 800);
+
+            // Stream SSE response
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.content) {
+                            fullText += parsed.content;
+                            setStreamingText(fullText);
+                        }
+                    } catch { }
+                }
+            }
+            setMessages(prev => [...prev, { role: 'ai', text: fullText || 'Pas de reponse.' }]);
+        } catch {
+            // Fallback local (pas de cle API)
+            const fallback = generateLocalResponse(q);
+            // Typing animation
+            for (let i = 0; i <= fallback.length; i += 3) {
+                await new Promise(r => setTimeout(r, 8));
+                setStreamingText(fallback.slice(0, i));
+            }
+            setMessages(prev => [...prev, { role: 'ai', text: fallback }]);
+        }
+        setStreamingText('');
+        setIsTyping(false);
+    };
+
+    const generateLocalResponse = (q) => {
+        if (q.toLowerCase().includes('resume') || q.toLowerCase().includes('critique')) {
+            return `RESUME CRITIQUE — ${patient.firstName} ${patient.lastName}\n\nPatient de ${patient.age} ans, ${patient.sex}\nGroupe sanguin: ${patient.bloodType}\n\nALLERGIES MAJEURES:\n${patient.allergies.map(a => `  - ${a}`).join('\n')}\n\nPATHOLOGIES ACTIVES:\n${patient.conditions.map(c => `  - ${c.name} (${c.severity}) — ${c.details}`).join('\n')}\n\nINTERACTIONS CRITIQUES:\n${patient.interactions.map(i => `  - ${i.drugs.join(' + ')}: ${i.risk}`).join('\n')}\n\nMEDICAMENTS EN COURS: ${patient.medications.length}\nContact urgence: ${patient.emergencyContact}\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        } else if (q.toLowerCase().includes('allergi') || q.toLowerCase().includes('contre-indication')) {
+            return `ALLERGIES CONNUES:\n${patient.allergies.map(a => `  - ${a}`).join('\n')}\n\nCONTRE-INDICATIONS ABSOLUES:\n  - Penicilline et derives (amoxicilline, ampicilline)\n  - Sulfamides et derives\n  - Attention cephalosporines (allergie croisee ~10%)\n\nMEDICAMENTS A EVITER:\n  - Ibuprofene (interaction Amlodipine)\n  - Gliclazide pendant Ramadan (risque hypo x7.5)\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        } else if (q.toLowerCase().includes('interaction')) {
+            return `INTERACTIONS MEDICAMENTEUSES:\n\n${patient.interactions.map(i => `[${i.severity.toUpperCase()}] ${i.drugs.join(' + ')}\n  Risque: ${i.risk}\n  Source: ${i.source}`).join('\n\n')}\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        } else if (q.toLowerCase().includes('protocole') || q.toLowerCase().includes('hta')) {
+            return `PROTOCOLE HTA URGENTE\n\n1. TA connue: 155/95 mmHg\n2. Traitement: Amlodipine 10mg, Bisoprolol 5mg\n3. ATTENTION: Interaction→bradycardie\n4. Surveiller FC (ne pas descendre sous 50 bpm)\n5. Si TA >180/120: Nicardipine IV\n6. ECG de controle recommande\n7. Allergies: Penicilline, Sulfamides\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
+        }
+        return `Dossier de ${patient.firstName} ${patient.lastName}:\n- ${patient.conditions.length} pathologies actives\n- ${patient.medications.length} medicaments\n- ${patient.interactions.length} interactions\n- Allergies: ${patient.allergies.join(', ')}\n\n[Aide a la decision — La decision finale revient au medecin traitant]`;
     };
 
     return (
@@ -104,8 +228,8 @@ function UrgenceChatbot() {
                     </div>
                 ))}
                 {isTyping && (
-                    <div style={{ alignSelf: 'flex-start', padding: '8px 16px', background: 'var(--neutral-100)', borderRadius: '12px 12px 12px 2px', fontSize: 12, color: 'var(--text-muted)' }}>
-                        <span style={{ animation: 'pulse 1s ease infinite' }}>Analyse en cours...</span>
+                    <div style={{ alignSelf: 'flex-start', padding: '8px 16px', background: 'var(--neutral-100)', borderRadius: '12px 12px 12px 2px', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', fontFamily: "'IBM Plex Mono', monospace", maxWidth: '85%' }}>
+                        {streamingText || <span style={{ animation: 'pulse 1s ease infinite', color: 'var(--text-muted)' }}>Analyse en cours...</span>}
                     </div>
                 )}
             </div>
@@ -139,19 +263,119 @@ function UrgenceChatbot() {
 export default function UrgenceMode() {
     const [selectedRegion, setSelectedRegion] = useState(null);
     const [vitals, setVitals] = useState({ ta_sys: '', ta_dia: '', pouls: '', spo2: '', temp: '' });
+    const [vitalsSaved, setVitalsSaved] = useState(false);
+    const [vitalsAlert, setVitalsAlert] = useState(null);
+    const [showProtocole, setShowProtocole] = useState(false);
+    const [viewingScan, setViewingScan] = useState(null);
 
-    const urgentHistory = [...patient.history]
-        .sort((a, b) => {
-            const priority = { urgence: 0, operation: 1 };
-            const pA = priority[a.type] ?? 2;
-            const pB = priority[b.type] ?? 2;
-            if (pA !== pB) return pA - pB;
-            return b.date.localeCompare(a.date);
-        })
-        .slice(0, 6);
+    const checkVitals = () => {
+        const alerts = [];
+        const v = vitals;
+        if (v.ta_sys && Number(v.ta_sys) > 140) alerts.push(`TA systolique elevee: ${v.ta_sys} mmHg (>140)`);
+        if (v.ta_dia && Number(v.ta_dia) > 90) alerts.push(`TA diastolique elevee: ${v.ta_dia} mmHg (>90)`);
+        if (v.pouls && Number(v.pouls) < 50) alerts.push(`Bradycardie: ${v.pouls} bpm (<50) — Attention interaction Amlodipine+Bisoprolol`);
+        if (v.pouls && Number(v.pouls) > 100) alerts.push(`Tachycardie: ${v.pouls} bpm (>100)`);
+        if (v.spo2 && Number(v.spo2) < 95) alerts.push(`Desaturation: SpO2 ${v.spo2}% (<95)`);
+        if (v.temp && Number(v.temp) > 38) alerts.push(`Fievre: ${v.temp}C (>38)`);
+        if (v.temp && Number(v.temp) < 35) alerts.push(`Hypothermie: ${v.temp}C (<35)`);
+        setVitalsAlert(alerts.length > 0 ? alerts : null);
+        setVitalsSaved(true);
+    };
+
+    const isAbnormal = (key) => {
+        const v = vitals[key];
+        if (!v) return false;
+        const n = Number(v);
+        if (key === 'ta_sys') return n > 140 || n < 90;
+        if (key === 'ta_dia') return n > 90 || n < 60;
+        if (key === 'pouls') return n < 50 || n > 100;
+        if (key === 'spo2') return n < 95;
+        if (key === 'temp') return n > 38 || n < 35;
+        return false;
+    };
+
+    const allHistory = patient.history;
+    const urgentHistory = allHistory
+        .filter(e => e.type === 'urgence' || e.type === 'operation')
+        .sort((a, b) => b.date.localeCompare(a.date));
+    const filteredOut = allHistory.length - urgentHistory.length;
 
     return (
         <div className="fade-in" style={{ minHeight: 'calc(100vh - 60px)' }}>
+            {/* PROTOCOLE RAPIDE MODAL */}
+            {showProtocole && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }} onClick={() => setShowProtocole(false)}>
+                    <div className="card fade-in" style={{ width: 650, maxHeight: '80vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+                        <div className="card-header" style={{ position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 1 }}>
+                            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--severity-critical)' }}>Protocole Rapide</h3>
+                            <button className="btn btn-ghost btn-icon" onClick={() => setShowProtocole(false)}><svg style={{ width: 18, height: 18 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
+                        </div>
+                        <div className="card-body">
+                            <pre style={{ fontSize: 12, lineHeight: 1.8, fontFamily: "'IBM Plex Mono', monospace", whiteSpace: 'pre-wrap' }}>{`PROTOCOLE RAPIDE — URGENCE
+${'='.repeat(40)}
+Date: ${new Date().toLocaleString('fr-FR')}
+
+PATIENT: ${patient.firstName} ${patient.lastName}
+ID: ${patient.id} | Age: ${patient.age} ans | Sexe: ${patient.sex}
+GROUPE SANGUIN: ${patient.bloodType}
+
+[!!!] ALLERGIES: ${patient.allergies.join(', ')}
+
+CONSTANTES ACTUELLES:
+  TA: ${vitals.ta_sys || '___'}/${vitals.ta_dia || '___'} mmHg
+  Pouls: ${vitals.pouls || '___'} bpm
+  SpO2: ${vitals.spo2 || '___'}%
+  Temperature: ${vitals.temp || '___'}C
+
+PATHOLOGIES ACTIVES:
+${patient.conditions.map(c => `  [${c.severity.toUpperCase()}] ${c.name} — ${c.details}`).join('\n')}
+
+MEDICAMENTS EN COURS:
+${patient.medications.map(m => `  ${m.name} — ${m.dosage}`).join('\n')}
+
+INTERACTIONS CRITIQUES:
+${patient.interactions.map(i => `  [!] ${i.drugs.join(' + ')}: ${i.risk}`).join('\n')}
+
+CONTACT URGENCE: ${patient.emergencyContact}
+
+${'='.repeat(40)}
+Genere par Alwarid — Outil d'aide a la decision`}</pre>
+                        </div>
+                        <div className="card-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-secondary" onClick={() => window.print()}>Imprimer</button>
+                            <button className="btn btn-primary" onClick={() => setShowProtocole(false)}>Fermer</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SCAN IMAGE LIGHTBOX */}
+            {viewingScan && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }} onClick={() => setViewingScan(null)}>
+                    <div className="fade-in" style={{ maxWidth: 700, width: '90%', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', maxHeight: '60vh' }}>
+                            <img src={viewingScan.image} alt={viewingScan.type} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
+                        </div>
+                        <div style={{ padding: 20 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div>
+                                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{viewingScan.type}</h3>
+                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                        <span>{formatDate(viewingScan.date)}</span>
+                                        <span>{viewingScan.lab}</span>
+                                        <span>{viewingScan.doctor}</span>
+                                    </div>
+                                    <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-secondary)' }}>{viewingScan.result}</div>
+                                </div>
+                                <button className="btn btn-ghost btn-icon" onClick={() => setViewingScan(null)}>
+                                    <svg style={{ width: 20, height: 20 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* CRITICAL BANNER */}
             <div style={{
                 background: 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)',
@@ -179,7 +403,7 @@ export default function UrgenceMode() {
                             {ICN.warn} Allergies : Penicilline, Sulfamides
                         </div>
                     </div>
-                    <button className="btn btn-lg" style={{ background: 'white', color: 'var(--severity-critical)', border: '2px solid var(--severity-critical)', fontWeight: 600, gap: 8 }}>
+                    <button className="btn btn-lg" style={{ background: 'white', color: 'var(--severity-critical)', border: '2px solid var(--severity-critical)', fontWeight: 600, gap: 8 }} onClick={() => setShowProtocole(true)}>
                         {ICN.doc} Protocole rapide
                     </button>
                 </div>
@@ -242,33 +466,53 @@ export default function UrgenceMode() {
                                         <div key={v.key} className="form-group">
                                             <label className="form-label" style={{ textAlign: 'center' }}>{v.label}</label>
                                             <div style={{ position: 'relative' }}>
-                                                <input type="text" className="form-input" style={{ width: '100%', textAlign: 'center', fontWeight: 600, fontSize: 18, height: 48 }} placeholder={v.placeholder} value={vitals[v.key]} onChange={e => setVitals(prev => ({ ...prev, [v.key]: e.target.value }))} />
+                                                <input type="text" className="form-input" style={{ width: '100%', textAlign: 'center', fontWeight: 600, fontSize: 18, height: 48, borderColor: isAbnormal(v.key) ? 'var(--severity-critical)' : vitals[v.key] ? 'var(--severity-success)' : undefined, boxShadow: isAbnormal(v.key) ? '0 0 0 2px rgba(220,38,38,0.2)' : undefined }} placeholder={v.placeholder} value={vitals[v.key]} onChange={e => { setVitals(prev => ({ ...prev, [v.key]: e.target.value })); setVitalsSaved(false); }} />
                                                 <span style={{ position: 'absolute', right: 8, bottom: -16, fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>{v.unit}</span>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
+                            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <button className={`btn btn-sm ${vitalsSaved ? 'btn-secondary' : 'btn-primary'}`} onClick={checkVitals} style={{ gap: 6 }}>
+                                    {vitalsSaved ? 'Enregistre' : 'Enregistrer les constantes'}
+                                </button>
+                                {vitalsSaved && !vitalsAlert && <span className="badge badge-success">Constantes normales</span>}
+                            </div>
+                            {vitalsAlert && vitalsSaved && (
+                                <div className="alert alert-critical" style={{ margin: '0 16px 16px' }}>
+                                    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
+                                    <div><div className="alert-title">Alertes detectees</div>{vitalsAlert.map((a, i) => <div key={i} className="alert-text">{a}</div>)}</div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Timeline */}
-                        <div style={{ animation: 'fadeInUp 0.8s ease both' }}>
-                            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Evenements recents (urgences prioritaires)</h3>
-                            <div className="timeline">
-                                {urgentHistory.map((entry, i) => {
-                                    const typeInfo = HISTORY_TYPES[entry.type] || { label: entry.type, color: 'info' };
-                                    return (
-                                        <div key={i} className="timeline-item" style={{ animationDelay: `${i * 50}ms` }}>
-                                            <div className={`timeline-dot ${typeInfo.color}`}><svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg></div>
-                                            <div className="timeline-content">
-                                                <div className="timeline-date">{formatDate(entry.date)}</div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}><div className="timeline-title">{entry.title}</div><span className={`badge badge-${typeInfo.color}`}>{typeInfo.label}</span></div>
-                                                <div className="timeline-meta">{entry.doctor} — {entry.hospital}</div>
-                                                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{entry.details}</div>
+                        <div className="card" style={{ animation: 'fadeInUp 0.8s ease both' }}>
+                            <div className="card-header">
+                                <h3 style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>Evenements critiques</h3>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    <span className="badge badge-critical">{urgentHistory.length} urgences/chirurgies</span>
+                                    <span className="badge badge-neutral" title="Consultations dentaire, dermato, ophtalmo, ORL, pneumo, rhumato... filtrees">{filteredOut} filtres</span>
+                                </div>
+                            </div>
+                            <div style={{ maxHeight: 350, overflowY: 'auto', padding: 16 }}>
+                                <div className="timeline">
+                                    {urgentHistory.map((entry, i) => {
+                                        const typeInfo = HISTORY_TYPES[entry.type] || { label: entry.type, color: 'info' };
+                                        return (
+                                            <div key={i} className="timeline-item" style={{ animationDelay: `${i * 50}ms` }}>
+                                                <div className={`timeline-dot ${typeInfo.color}`}><svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg></div>
+                                                <div className="timeline-content">
+                                                    <div className="timeline-date">{formatDate(entry.date)}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}><div className="timeline-title">{entry.title}</div><span className={`badge badge-${typeInfo.color}`}>{typeInfo.label}</span></div>
+                                                    <div className="timeline-meta">{entry.doctor} — {entry.hospital}</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{entry.details}</div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -297,7 +541,7 @@ export default function UrgenceMode() {
                                         <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cliquez sur le modele 3D pour afficher les details.</p>
                                     </div>
                                 )}
-                                {selectedRegion && <RegionDetail regionKey={selectedRegion} />}
+                                {selectedRegion && <RegionDetail regionKey={selectedRegion} onViewScan={setViewingScan} />}
                             </div>
                         </div>
 
@@ -305,14 +549,21 @@ export default function UrgenceMode() {
                         <UrgenceChatbot />
 
                         {/* Quick Info */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, animation: 'fadeInUp 0.6s ease both' }}>
-                            <div className="card" style={{ padding: 16 }}>
-                                <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--text-muted)', marginBottom: 4 }}>Contact urgence</div>
-                                <div style={{ fontSize: 13, fontWeight: 500 }}>{patient.emergencyContact}</div>
-                            </div>
-                            <div className="card" style={{ padding: 16 }}>
-                                <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--text-muted)', marginBottom: 4 }}>Morphologie</div>
-                                <div style={{ fontSize: 13, fontWeight: 500 }}>Taille : {patient.height} — Poids : {patient.weight}</div>
+                        <div className="card" style={{ animation: 'fadeInUp 0.6s ease both' }}>
+                            <div className="card-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+                                <div style={{ padding: 20, borderRight: '1px solid var(--border-subtle)' }}>
+                                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--severity-critical)', marginBottom: 8 }}>Contact urgence</div>
+                                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{patient.emergencyContact}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Personne a contacter en cas d'urgence</div>
+                                </div>
+                                <div style={{ padding: 20 }}>
+                                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--text-muted)', marginBottom: 8 }}>Morphologie</div>
+                                    <div style={{ display: 'flex', gap: 16 }}>
+                                        <div><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary-700)' }}>{patient.height}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Taille</div></div>
+                                        <div><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary-700)' }}>{patient.weight}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Poids</div></div>
+                                        <div><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary-700)' }}>{patient.bloodType}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Groupe</div></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

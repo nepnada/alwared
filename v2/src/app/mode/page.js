@@ -91,7 +91,7 @@ export default function ModePage() {
                 </div>
             </main>
             <footer className="page-footer">
-                SihhaTek v2.0 — Outil d&apos;aide a la decision — La decision revient au medecin traitant — Conformite Loi 09-08 (CNDP)
+                Alwarid v2.0 — Outil d&apos;aide a la decision — La decision revient au medecin traitant — Conformite Loi 09-08 (CNDP)
             </footer>
         </>
     );

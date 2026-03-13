@@ -5,8 +5,7 @@ export default function Header({ showMode, modeName, patientName, patientId, sho
     return (
         <header className="app-header">
             <Link href="/" className="app-logo" style={{ textDecoration: 'none' }}>
-                <div className="app-logo-mark">S</div>
-                <span className="app-logo-text">SihhaTek</span>
+                <img src="/logo.png" alt="Alwarid" style={{ height: 120 }} />
             </Link>
             <div className="app-header-right">
                 {showMode && (

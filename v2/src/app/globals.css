@@ -261,7 +261,7 @@ img {
 
 /* ──────────── HEADER / NAV ──────────── */
 .app-header {
-    height: 60px;
+    height: 80px;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border-default);
     display: flex;
