@@ -8,26 +8,26 @@ const MODES = [
     {
         id: 'urgence', title: 'Urgence', className: 'urgence',
         desc: 'Acces rapide aux informations critiques d\'un patient inconscient ou non-communicant',
-        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5" /><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>,
-        features: ['Allergies et contre-indications en priorite', 'Interactions medicamenteuses critiques', 'Conditions chroniques et traitements en cours']
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 32, height: 32 }}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /><line x1="12" y1="2" x2="12" y2="5" /></svg>,
+        features: ['Allergies et contre-indications en priorite', 'Interactions medicamenteuses critiques', 'Chatbot IA urgentiste integre']
     },
     {
         id: 'consultation', title: 'Consultation', className: 'consultation',
         desc: 'Consultation standard avec acces complet a l\'historique medical du patient',
-        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></svg>,
-        features: ['Historique medical complet', 'Imagerie et documents', 'Saisie de nouvelles observations']
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 32, height: 32 }}><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11h4" /><path d="M12 16h4" /><path d="M8 11h.01" /><path d="M8 16h.01" /></svg>,
+        features: ['Documents & IA (ECG, echo, radio)', 'Ordonnance QR code (pilote Kenitra)', 'Analyse IA du dossier']
     },
     {
         id: 'suivi', title: 'Suivi', className: 'suivi',
         desc: 'Suivi d\'un patient chronique avec visualisation des tendances',
-        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>,
-        features: ['Evolution des marqueurs biologiques', 'Adherence au traitement', 'Alertes de suivi personnalisees']
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 32, height: 32 }}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>,
+        features: ['Cycle glycemique avec interpretation IA', 'Checklists hygieno-dietetiques', 'Comparaison entre visites']
     },
     {
         id: 'transfert', title: 'Transfert', className: 'transfert',
         desc: 'Patient transfere d\'un autre etablissement, synthese inter-hospitaliere',
-        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}><path d="M18 8L22 12L18 16" /><path d="M2 12H22" /></svg>,
-        features: ['Resume du dossier de transfert', 'Continuite des soins', 'Comparaison inter-etablissements']
+        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 32, height: 32 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></svg>,
+        features: ['Selection securisee des donnees', 'Consentement patient (Loi 09-08)', 'QR code d\'acces temporaire']
     }
 ];
 

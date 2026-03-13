@@ -63,12 +63,14 @@ export default function SearchPage() {
                             <div className="patient-list-info">
                                 <div className="patient-list-name">{p.name}</div>
                                 <div className="patient-list-meta">{p.id} — {p.age} ans, {p.sex === 'H' ? 'Homme' : 'Femme'}</div>
+                                {p.useCase && <div style={{ fontSize: 11, color: 'var(--primary-600)', fontWeight: 500, marginTop: 2 }}>{p.useCase}</div>}
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.lastVisit}</div>
                                 <span className={`badge badge-${p.alertLevel}`}>
                                     {p.alerts > 0 ? `${p.alerts} alerte${p.alerts > 1 ? 's' : ''}` : 'Stable'}
                                 </span>
+                                {p.specialty && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{p.specialty}</div>}
                             </div>
                         </div>
                     ))}
