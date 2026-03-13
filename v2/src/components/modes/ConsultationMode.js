@@ -143,9 +143,13 @@ function DocumentsAITab() {
     const [ecgPreview, setEcgPreview] = useState(null);
     const [ecgAnalyzing, setEcgAnalyzing] = useState(false);
     const [ecgResult, setEcgResult] = useState(null);
+    const [ecgSignalType, setEcgSignalType] = useState('Normal');
+    const [ecgSamples, setEcgSamples] = useState(null);
+    const [ecgXaiActive, setEcgXaiActive] = useState(false);
     const [addedToDossier, setAddedToDossier] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef(null);
+    const ecgCanvasRef = useRef(null);
 
     const toggleSpeech = () => {
         if (isListening) {
@@ -201,29 +205,37 @@ function DocumentsAITab() {
         reader.readAsDataURL(file);
     };
 
-    const analyzeEcg = () => {
+    const analyzeEcg = async () => {
         setEcgAnalyzing(true);
         setEcgResult(null);
-        setTimeout(() => {
-            setEcgResult({
-                prediction: 'Fibrillation auriculaire (FA)',
-                confidence: 94.2,
-                details: [
-                    { zone: 'Derivation II', finding: 'Absence d\'onde P identifiable', severity: 'critical' },
-                    { zone: 'Derivation V1', finding: 'Rythme irregulierement irregulier', severity: 'critical' },
-                    { zone: 'Intervalle R-R', finding: 'Variabilite significative (SD > 120ms)', severity: 'warning' },
-                    { zone: 'Frequence', finding: 'FC moyenne 88 bpm — Reponse ventriculaire controlee', severity: 'info' },
-                    { zone: 'Segment ST', finding: 'Pas de sus/sous-decalage significatif', severity: 'success' }
-                ],
-                gradcamZones: [
-                    { x: 15, y: 30, w: 25, h: 40, label: 'Zone P absente', color: 'rgba(220,38,38,0.4)' },
-                    { x: 55, y: 20, w: 30, h: 50, label: 'R-R irregulier', color: 'rgba(234,179,8,0.35)' },
-                    { x: 40, y: 60, w: 20, h: 25, label: 'Baseline', color: 'rgba(34,197,94,0.25)' }
-                ],
-                recommendation: 'Suspicion de fibrillation auriculaire. Recommandation: Holter ECG 24h pour confirmer. Evaluer score CHA2DS2-VASc pour anticoagulation. Controle fonction thyroidienne.'
+        setEcgXaiActive(false);
+        try {
+            // Load samples if not loaded yet
+            let samples = ecgSamples;
+            if (!samples) {
+                const res = await fetch('/ecg-samples.json');
+                samples = await res.json();
+                setEcgSamples(samples);
+            }
+            const signalData = samples[ecgSignalType];
+            if (!signalData) { setEcgAnalyzing(false); return; }
+
+            const res = await fetch('/api/ecg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signal: signalData.signal }),
             });
-            setEcgAnalyzing(false);
-        }, 2500);
+            const data = await res.json();
+            if (data.error) {
+                alert(data.error);
+                setEcgAnalyzing(false);
+                return;
+            }
+            setEcgResult(data);
+        } catch (err) {
+            alert('Erreur connexion au serveur ECG. Lancez: cd T-MECA/interface && python app.py');
+        }
+        setEcgAnalyzing(false);
     };
 
     const generateReport = async (docType) => {
@@ -338,55 +350,175 @@ function DocumentsAITab() {
                         <div className="card-body">
                             {selectedDoc.id === 'ecg' ? (
                                 <div>
+                                    {/* ECG HEADER */}
                                     <div style={{ background: 'linear-gradient(135deg, var(--severity-critical-bg) 0%, #fff1f2 100%)', borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 16, border: '1px solid var(--severity-critical-border)' }}>
-                                        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>{sz(ICON.ecg, 18)} Analyse ECG — Explainable AI (GradCAM)</h4>
-                                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Uploadez un ECG pour obtenir une analyse par notre modele IA entraine avec visualisation GradCAM.</p>
-                                        {!ecgPreview ? (
-                                            <label style={{ border: '2px dashed var(--severity-critical-border)', borderRadius: 'var(--radius-md)', padding: 40, textAlign: 'center', display: 'block', cursor: 'pointer', transition: 'all 0.2s ease' }}>
-                                                <input type="file" accept="image/*" onChange={handleEcgUpload} style={{ display: 'none' }} />
-                                                <div style={{ width: 40, height: 40, margin: '0 auto 8px', color: 'var(--severity-critical)', opacity: 0.5 }}>{sz(ICON.upload, 40)}</div>
-                                                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cliquez pour uploader un ECG (image)</p>
-                                            </label>
-                                        ) : (
-                                            <div>
-                                                <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 16, border: '2px solid var(--severity-critical-border)' }}>
-                                                    <img src={ecgPreview} alt="ECG" style={{ width: '100%', display: 'block', maxHeight: 300, objectFit: 'contain', background: 'white' }} />
-                                                    {ecgResult && ecgResult.gradcamZones.map((z, i) => (
-                                                        <div key={i} style={{ position: 'absolute', left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%`, background: z.color, borderRadius: 8, border: '2px solid rgba(220,38,38,0.6)', animation: 'pulse 2s ease infinite', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 4 }}>
-                                                            <span style={{ fontSize: 9, color: 'white', background: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>{z.label}</span>
-                                                        </div>
-                                                    ))}
-                                                    {ecgAnalyzing && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}><div style={{ background: 'white', padding: '16px 24px', borderRadius: 'var(--radius-lg)', fontWeight: 600, animation: 'pulse 1s ease infinite' }}>Analyse IA en cours...</div></div>}
-                                                </div>
-                                                <div style={{ display: 'flex', gap: 8 }}>
-                                                    {!ecgResult && <button className="btn btn-primary" onClick={analyzeEcg} disabled={ecgAnalyzing} style={{ background: 'var(--severity-critical)', gap: 6 }}>{sz(ICON.ai, 14)} {ecgAnalyzing ? 'Analyse en cours...' : 'Lancer l\'analyse IA'}</button>}
-                                                    <button className="btn btn-secondary" onClick={() => { setEcgPreview(null); setEcgFile(null); setEcgResult(null); }}>Changer l'image</button>
-                                                </div>
-                                            </div>
-                                        )}
+                                        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>{sz(ICON.ecg, 18)} Analyse ECG — T-MECA + IA Explicable (Grad-CAM)</h4>
+                                        <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>Modele ResNet18 + Multi-Spectral Attention entraine sur MIT-BIH. Selectionnez un type de battement et lancez l'analyse.</p>
+
+                                        {/* Signal selector */}
+                                        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <select className="form-input" value={ecgSignalType} onChange={e => setEcgSignalType(e.target.value)} style={{ height: 38, fontSize: 13, minWidth: 200 }}>
+                                                <option value="Normal">N — Normal Beat</option>
+                                                <option value="Supraventricular">S — Supraventricular Ectopic</option>
+                                                <option value="Ventricular">V — Ventricular Ectopic</option>
+                                                <option value="Fusion">F — Fusion Beat</option>
+                                                <option value="Unknown">Q — Unknown / Paced</option>
+                                            </select>
+                                            <button className="btn btn-primary" onClick={analyzeEcg} disabled={ecgAnalyzing} style={{ background: 'var(--severity-critical)', gap: 6, height: 38 }}>
+                                                {sz(ICON.ai, 14)} {ecgAnalyzing ? 'Analyse en cours...' : 'Analyser avec IA (XAI)'}
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {/* ECG CHART + XAI */}
                                     {ecgResult && (
                                         <div className="fade-in">
-                                            <div className="card" style={{ marginBottom: 16, border: '2px solid var(--severity-critical-border)' }}>
-                                                <div className="card-header"><h4 style={{ fontSize: 14, fontWeight: 600 }}>Resultat IA</h4><span className="badge badge-critical">Confiance: {ecgResult.confidence}%</span></div>
-                                                <div className="card-body">
-                                                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--severity-critical)', marginBottom: 12 }}>{ecgResult.prediction}</div>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                                                        {ecgResult.details.map((d, i) => (
-                                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--neutral-50)', borderRadius: 'var(--radius-sm)' }}>
-                                                                <span className={`badge badge-${d.severity}`}>{d.zone}</span>
-                                                                <span style={{ fontSize: 12 }}>{d.finding}</span>
-                                                            </div>
-                                                        ))}
+                                            {/* XAI Toggle */}
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                                <button className={`btn ${ecgXaiActive ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setEcgXaiActive(!ecgXaiActive)} style={{ gap: 6, fontSize: 12 }}>
+                                                    {sz(ICON.ai, 14)} {ecgXaiActive ? 'Desactiver overlay XAI' : 'Activer l\'assistance IA (XAI)'}
+                                                </button>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Signal: 187 points — MIT-BIH — 360 Hz</span>
+                                            </div>
+
+                                            {/* 1D ECG Chart with XAI overlay */}
+                                            <div style={{ background: '#ffffff', borderRadius: 'var(--radius-lg)', padding: 16, marginBottom: 16, border: '2px solid var(--border-default)' }}>
+                                                <svg viewBox="0 0 800 200" style={{ width: '100%', height: 200, display: 'block' }}>
+                                                    {/* ECG paper grid — fine pink lines */}
+                                                    {Array.from({ length: 11 }, (_, i) => i * 20).map(y => <line key={`hf${y}`} x1="0" y1={y} x2="800" y2={y} stroke="#fecaca" strokeWidth="0.3" />)}
+                                                    {Array.from({ length: 41 }, (_, i) => i * 20).map(x => <line key={`vf${x}`} x1={x} y1="0" x2={x} y2="200" stroke="#fecaca" strokeWidth="0.3" />)}
+                                                    {/* Major grid lines */}
+                                                    {[0, 40, 80, 120, 160, 200].map(y => <line key={`h${y}`} x1="0" y1={y} x2="800" y2={y} stroke="#fca5a5" strokeWidth="0.5" />)}
+                                                    {Array.from({ length: 21 }, (_, i) => i * 40).map(x => <line key={`v${x}`} x1={x} y1="0" x2={x} y2="200" stroke="#fca5a5" strokeWidth="0.5" />)}
+
+                                                    {/* XAI attention bands (background) */}
+                                                    {ecgXaiActive && ecgResult.explainability?.gradcam_1d && (() => {
+                                                        const cam = ecgResult.explainability.gradcam_1d;
+                                                        const nonZeroSignalLen = ecgResult.signal.findIndex((v, i) => i > 10 && v === 0 && ecgResult.signal[i+1] === 0 && ecgResult.signal[i+2] === 0);
+                                                        const sigLen = nonZeroSignalLen > 0 ? nonZeroSignalLen : cam.length;
+                                                        return cam.slice(0, sigLen).map((score, i) => {
+                                                            if (score < 0.3) return null;
+                                                            const x = (i / sigLen) * 800;
+                                                            const w = 800 / sigLen + 0.5;
+                                                            const r = Math.min(255, Math.round(score * 400));
+                                                            const g = Math.max(0, Math.round((1 - score) * 180));
+                                                            return <rect key={`xai${i}`} x={x} y="0" width={w} height="200" fill={`rgba(${r},${g},0,${score * 0.35})`} />;
+                                                        });
+                                                    })()}
+
+                                                    {/* ECG signal line */}
+                                                    {(() => {
+                                                        const sig = ecgResult.signal;
+                                                        const cam = ecgResult.explainability?.gradcam_1d || [];
+                                                        const nonZeroLen = sig.findIndex((v, i) => i > 10 && v === 0 && sig[i+1] === 0 && sig[i+2] === 0);
+                                                        const sigLen = nonZeroLen > 0 ? nonZeroLen : sig.length;
+                                                        const pts = sig.slice(0, sigLen).map((v, i) => {
+                                                            const x = (i / sigLen) * 800;
+                                                            const y = 180 - v * 160;
+                                                            return `${x},${y}`;
+                                                        });
+                                                        if (!ecgXaiActive) {
+                                                            return <polyline points={pts.join(' ')} fill="none" stroke="#1e293b" strokeWidth="1.5" />;
+                                                        }
+                                                        // Color segments by attention
+                                                        const segs = [];
+                                                        for (let i = 0; i < sigLen - 1; i++) {
+                                                            const x1 = (i / sigLen) * 800, y1 = 180 - sig[i] * 160;
+                                                            const x2 = ((i+1) / sigLen) * 800, y2 = 180 - sig[i+1] * 160;
+                                                            const sc = cam[i] || 0;
+                                                            const color = sc > 0.6 ? '#ef4444' : sc > 0.3 ? '#f59e0b' : '#22c55e';
+                                                            const sw = sc > 0.6 ? 3 : sc > 0.3 ? 2 : 1.5;
+                                                            segs.push(<line key={`s${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={sw} />);
+                                                        }
+                                                        return segs;
+                                                    })()}
+                                                </svg>
+                                                {/* Legend */}
+                                                {ecgXaiActive && (
+                                                    <div style={{ display: 'flex', gap: 16, marginTop: 8, justifyContent: 'center' }}>
+                                                        <span style={{ fontSize: 10, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 3, background: '#22c55e', display: 'inline-block', borderRadius: 2 }} /> Normal</span>
+                                                        <span style={{ fontSize: 10, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 3, background: '#f59e0b', display: 'inline-block', borderRadius: 2 }} /> Attention moderee</span>
+                                                        <span style={{ fontSize: 10, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 3, background: '#ef4444', display: 'inline-block', borderRadius: 2 }} /> Attention elevee (zone diagnostique)</span>
                                                     </div>
-                                                    <div style={{ padding: 12, background: 'var(--severity-warning-bg)', border: '1px solid var(--severity-warning-border)', borderRadius: 'var(--radius-md)', fontSize: 12, lineHeight: 1.6 }}>
-                                                        <strong>Recommandation IA :</strong> {ecgResult.recommendation}
+                                                )}
+                                            </div>
+
+                                            {/* RESULTS GRID */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                                                {/* Prediction */}
+                                                <div className="card" style={{ border: '2px solid var(--severity-critical-border)' }}>
+                                                    <div className="card-header"><h4 style={{ fontSize: 14, fontWeight: 600 }}>Prediction IA</h4><span className="badge badge-critical">{(ecgResult.prediction.confidence * 100).toFixed(1)}%</span></div>
+                                                    <div className="card-body">
+                                                        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--severity-critical)', marginBottom: 12 }}>{ecgResult.prediction.class_name}</div>
+                                                        {/* Class probabilities */}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                            {Object.entries(ecgResult.prediction.probabilities).map(([name, prob]) => {
+                                                                const pct = (prob * 100).toFixed(1);
+                                                                const isMax = name === ecgResult.prediction.class_name;
+                                                                return (
+                                                                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                                                                        <span style={{ width: 90, fontWeight: isMax ? 700 : 400, color: isMax ? 'var(--severity-critical)' : 'var(--text-muted)' }}>{name}</span>
+                                                                        <div style={{ flex: 1, height: 8, background: 'var(--neutral-100)', borderRadius: 4, overflow: 'hidden' }}>
+                                                                            <div style={{ width: `${pct}%`, height: '100%', background: isMax ? 'var(--severity-critical)' : 'var(--primary-400)', borderRadius: 4, transition: 'width 0.5s ease' }} />
+                                                                        </div>
+                                                                        <span style={{ width: 40, textAlign: 'right', fontWeight: isMax ? 700 : 400 }}>{pct}%</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Uncertainty + Referral */}
+                                                <div className="card">
+                                                    <div className="card-header"><h4 style={{ fontSize: 14, fontWeight: 600 }}>Incertitude (MC-Dropout)</h4><span className="badge badge-info">{ecgResult.uncertainty.mc_passes} passes</span></div>
+                                                    <div className="card-body">
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                                                                <span>Entropie predictive</span>
+                                                                <span style={{ fontWeight: 600 }}>{ecgResult.uncertainty.predictive_entropy.toFixed(4)}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                                                                <span>Epistemique (modele)</span>
+                                                                <span style={{ fontWeight: 600 }}>{ecgResult.uncertainty.epistemic.toFixed(4)}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                                                                <span>Aleatoire (donnees)</span>
+                                                                <span style={{ fontWeight: 600 }}>{ecgResult.uncertainty.aleatoric.toFixed(4)}</span>
+                                                            </div>
+                                                            <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 'var(--radius-md)', background: ecgResult.uncertainty.should_refer ? 'var(--severity-critical-bg)' : 'var(--severity-success-bg)', border: `1px solid ${ecgResult.uncertainty.should_refer ? 'var(--severity-critical-border)' : 'var(--severity-success-border)'}`, fontSize: 12, fontWeight: 600, textAlign: 'center' }}>
+                                                                {ecgResult.uncertainty.should_refer
+                                                                    ? '⚠️ Incertitude elevee — Referral recommande'
+                                                                    : '✅ Confiance haute — Pas de referral necessaire'}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <button className={`btn ${addedToDossier ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setAddedToDossier(true)} style={{ gap: 6 }}>
-                                                {addedToDossier ? <>{sz(ICON.check, 14)} Ajoute au dossier</> : <>{sz(ICON.download, 14)} Ajouter au dossier patient</>}
-                                            </button>
+
+                                            {/* AI Report */}
+                                            <div style={{ padding: 16, background: 'var(--severity-warning-bg)', border: '1px solid var(--severity-warning-border)', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
+                                                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>{sz(ICON.ai, 16)} Rapport IA Indicatif</h4>
+                                                <p style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-secondary)' }}>
+                                                    L'IA suggere une morphologie de type <strong>{ecgResult.prediction.class_name}</strong> avec <strong>{(ecgResult.prediction.confidence * 100).toFixed(1)}%</strong> de confiance,
+                                                    {ecgXaiActive ? ' basee sur les zones en rouge/jaune du trace ci-dessus.' : ' activez l\'overlay XAI pour visualiser les zones diagnostiques.'}
+                                                    {ecgResult.uncertainty.should_refer && ' L\'incertitude du modele est elevee — un avis specialise est recommande.'}
+                                                    {' '}Entropie predictive: {ecgResult.uncertainty.predictive_entropy.toFixed(4)}.
+                                                    {' '}Analyse basee sur {ecgResult.uncertainty.mc_passes} passes MC-Dropout.
+                                                </p>
+                                            </div>
+
+                                            {/* DISCLAIMER */}
+                                            <div style={{ padding: '10px 16px', background: '#fef9c3', border: '1px solid #fde047', borderRadius: 'var(--radius-md)', fontSize: 12, fontWeight: 600, textAlign: 'center', color: '#854d0e' }}>
+                                                ⚠️ A titre indicatif — La decision finale revient au medecin
+                                            </div>
+
+                                            {/* Add to dossier */}
+                                            <div style={{ marginTop: 12 }}>
+                                                <button className={`btn ${addedToDossier ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setAddedToDossier(true)} style={{ gap: 6 }}>
+                                                    {addedToDossier ? <>{sz(ICON.check, 14)} Ajoute au dossier</> : <>{sz(ICON.download, 14)} Ajouter au dossier patient</>}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
