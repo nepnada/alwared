@@ -74,8 +74,8 @@ export const MOCK_PATIENTS = [
                 ],
                 operations: [],
                 scans: [
-                    { type: "ECG", date: "2024-06-20", lab: "CHU Hassan II, Fes", doctor: "Dr. Alaoui", result: "Arythmie sinusale" },
-                    { type: "Echocardiographie", date: "2024-07-05", lab: "CHU Hassan II, Fes", doctor: "Dr. Alaoui", result: "Fraction d'ejection 55%, sans anomalie structurelle" },
+                    { type: "ECG", date: "2024-06-20", lab: "CHU Hassan II, Fes", doctor: "Dr. Alaoui", result: "Arythmie sinusale", image: "/scan-ecg.png" },
+                    { type: "Echocardiographie", date: "2024-07-05", lab: "CHU Hassan II, Fes", doctor: "Dr. Alaoui", result: "Fraction d'ejection 55%, sans anomalie structurelle", image: "/scan-echo-cardio.png" },
                     { type: "Radiographie thoracique", date: "2023-01-12", lab: "Clinique Ibn Sina, Fes", doctor: "Dr. Moussaoui", result: "Index cardiothoracique normal", image: "/scan-thorax.png" }
                 ],
                 medications: ["Amlodipine 10mg", "Bisoprolol 5mg", "Atorvastatine 20mg"],
@@ -123,7 +123,7 @@ export const MOCK_PATIENTS = [
                 ],
                 operations: [],
                 scans: [
-                    { type: "IRM genou gauche", date: "2023-04-18", lab: "IRM Atlas, Fes", doctor: "Dr. Cherkaoui", result: "Gonarthrose grade 2, pincement femoro-tibial medial" },
+                    { type: "IRM genou gauche", date: "2023-04-18", lab: "IRM Atlas, Fes", doctor: "Dr. Cherkaoui", result: "Gonarthrose grade 2, pincement femoro-tibial medial", image: "/scan-genou.png" },
                     { type: "EMG membres inferieurs", date: "2025-02-10", lab: "CHU Hassan II, Fes", doctor: "Dr. Fassi Fihri", result: "Neuropathie sensitive debutante" }
                 ],
                 medications: ["Ibuprofene 400mg PRN"],
@@ -174,7 +174,12 @@ export const MOCK_PATIENTS = [
             { date: "2024-12-03", type: "consultation", title: "Consultation rhumatologie", doctor: "Dr. Chraibi", hospital: "CHU Hassan II, Fes", details: "Controle gonarthrose. Grade 2 stable. Kinetitherapie recommandee 2x/semaine. Pas d'indication chirurgicale." },
             { date: "2024-09-15", type: "consultation", title: "Consultation pneumologie — Bilan", doctor: "Dr. El Alami", hospital: "CHU Hassan II, Fes", details: "EFR normales. Pas de BPCO. Patient non-fumeur. SpO2 98%. Pas de suivi necessaire." },
             { date: "2024-04-08", type: "consultation", title: "Consultation dermatologie — Eczema", doctor: "Dr. Senhaji", hospital: "Cabinet Dermatologique Fes", details: "Eczema mains (lien avec stress et diabete). Dermocorticoide classe 2 prescrit. Amelioration attendue sous 2 semaines." },
-            { date: "2023-11-20", type: "consultation", title: "Consultation ophtalmologie — Correction optique", doctor: "Dr. Berrada", hospital: "Centre Ophtalmo Atlas, Fes", details: "Presbytie progressive. Nouvelles lunettes prescrites. Pas de glaucome. Fond d'oeil normal." }
+            { date: "2023-11-20", type: "consultation", title: "Consultation ophtalmologie — Correction optique", doctor: "Dr. Berrada", hospital: "Centre Ophtalmo Atlas, Fes", details: "Presbytie progressive. Nouvelles lunettes prescrites. Pas de glaucome. Fond d'oeil normal." },
+            { date: "2025-05-14", type: "consultation", title: "Consultation allergologie — Bilan", doctor: "Dr. Lamrani", hospital: "Clinique Atlas, Fes", details: "Bilan allergologique complet. Allergie connue Penicilline confirmee (IgE specifiques positives). Test cutane Sulfamides positif. Carte d'allergies mise a jour. Pas de nouvelle allergie detectee." },
+            { date: "2025-01-22", type: "consultation", title: "Consultation gastro-enterologie", doctor: "Dr. El Khattabi", hospital: "CHU Hassan II, Fes", details: "Reflux gastro-oesophagien intermittent. Pas d'indication de fibroscopie. Mesures hygienodietetiques. Omeprazole 20mg PRN prescrit." },
+            { date: "2024-06-12", type: "consultation", title: "Consultation podologie diabetique", doctor: "Dr. Amara", hospital: "Centre Diabetologie Fes", details: "Examen annuel des pieds (suivi diabetique). Pas d'ulceration. Monofilament normal. Pouls pediaux presents. Chaussures adaptees recommandees." },
+            { date: "2024-02-28", type: "consultation", title: "Consultation urologie — Bilan prostatique", doctor: "Dr. Bouzidi", hospital: "Clinique Ibn Rochd, Fes", details: "PSA 2.8 ng/mL (normal). Toucher rectal normal. Pas d'indication de biopsie. Prochain controle dans 2 ans." },
+            { date: "2023-08-15", type: "consultation", title: "Seances kinesitherapie — Genou", doctor: "Mme. Daoudi", hospital: "Centre Reeducation Fes", details: "10 seances kinesitherapie pour gonarthrose genou gauche. Renforcement quadriceps. Amelioration fonctionnelle de 40%. Poursuite exercices a domicile." }
         ]
     }
 ];

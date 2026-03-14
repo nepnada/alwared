@@ -1,238 +1,184 @@
 'use client';
-import { useRef, useState, useEffect, Suspense } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useGLTF } from '@react-three/drei';
+import { useRef, useState } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { OrbitControls, Center } from '@react-three/drei';
 import * as THREE from 'three';
 
 const SEVERITY_COLORS = {
-    critical: '#dc2626', warning: '#d97706', caution: '#f59e0b',
-    stable: '#16a34a', info: '#2563eb'
+    critical: '#ef4444', // Red
+    warning: '#f59e0b',  // Orange
+    caution: '#fbbf24',  // Yellow
+    stable: '#2563eb',   // Emerald
+    info: '#3b82f6'      // Blue
 };
 
-/* ── Clickable body region (smooth capsule/sphere) ── */
-function BodyRegion({ position, size, regionKey, severity, onClick, label }) {
+/* ── Invisible/Glowing Hitbox for Image Regions ── */
+function RegionHitbox({ position, args, type = 'box', rotation=[0,0,0], regionKey, severity, onClick, selectedRegion }) {
     const meshRef = useRef();
     const color = SEVERITY_COLORS[severity] || SEVERITY_COLORS.stable;
     const [hovered, setHovered] = useState(false);
-
-    useFrame(() => {
-        if (meshRef.current) {
-            meshRef.current.material.emissiveIntensity = hovered ? 1.0 : 0.4;
-            const s = hovered ? 1.15 : 1.0;
-            meshRef.current.scale.lerp(new THREE.Vector3(s, s, s), 0.1);
-        }
-    });
-
-    return (
-        <group position={position}>
-            <mesh
-                ref={meshRef}
-                onClick={(e) => { e.stopPropagation(); onClick(regionKey); }}
-                onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
-                onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
-            >
-                <capsuleGeometry args={size || [0.08, 0.12, 16, 16]} />
-                <meshPhysicalMaterial
-                    color={color}
-                    emissive={color}
-                    emissiveIntensity={0.4}
-                    roughness={0.3}
-                    metalness={0.1}
-                    transparent
-                    opacity={0.85}
-                />
-            </mesh>
-        </group>
-    );
-}
-
-/* ── Pulse ring for critical regions ── */
-function PulseRing({ position, color }) {
-    const ringRef = useRef();
-    const phase = useRef(Math.random() * Math.PI * 2);
+    
+    const isSelected = selectedRegion === regionKey;
+    const hasAlert = severity === 'critical' || severity === 'warning';
 
     useFrame((state) => {
-        if (ringRef.current) {
+        if (meshRef.current) {
+            // Pulse opacity if alert
             const t = state.clock.elapsedTime;
-            const s = 1 + 0.3 * Math.sin(t * 2 + phase.current);
-            ringRef.current.scale.set(s, s, s);
-            ringRef.current.material.opacity = 0.5 * (0.5 + 0.5 * Math.cos(t * 2 + phase.current));
-            ringRef.current.lookAt(state.camera.position);
+            let pulse = 1;
+            if (severity === 'critical') pulse = 0.5 + Math.sin(t * 4) * 0.5;
+            if (severity === 'warning') pulse = 0.5 + Math.sin(t * 2) * 0.5;
+            
+            // Only show hitbox if hovered, selected, or has an alert
+            const isActive = hovered || isSelected || hasAlert;
+            
+            // Smoothly animate opacity
+            const targetOpacity = isActive ? (hasAlert ? 0.4 * pulse : 0.3) : 0.0;
+            meshRef.current.material.opacity = THREE.MathUtils.lerp(meshRef.current.material.opacity, targetOpacity, 0.1);
+            
+            // Scale up slightly on hover/select
+            const targetScale = (hovered || isSelected) ? 1.05 : 1.0;
+            meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, 1), 0.1);
         }
     });
 
     return (
-        <mesh ref={ringRef} position={position}>
-            <ringGeometry args={[0.15, 0.17, 64]} />
-            <meshBasicMaterial color={color} transparent opacity={0.8} side={THREE.DoubleSide} />
+        <mesh
+            ref={meshRef}
+            position={position}
+            rotation={rotation}
+            onClick={(e) => { e.stopPropagation(); onClick(regionKey); }}
+            onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
+            onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
+        >
+            {type === 'box' && <planeGeometry args={args} />}
+            {type === 'circle' && <circleGeometry args={args} />}
+            
+            <meshBasicMaterial
+                color={color}
+                transparent
+                opacity={0}
+                depthTest={false}
+                side={THREE.DoubleSide}
+            />
         </mesh>
     );
 }
 
-/* ── Human silhouette built from geometric shapes ── */
-function HumanBody({ onClick, regions }) {
-    const groupRef = useRef();
+/* ── 2.5D Anatomy Board ── */
+function AnatomyBoard({ regions, selectedRegion, onRegionSelect }) {
+    // Load the user's high-fidelity reference image
+    const texture = useLoader(THREE.TextureLoader, '/anatomy-reference.png');
+    // Aspect ratio of the image (assuming roughly 1:2 tall)
+    const boardWidth = 2.5;
+    const boardHeight = 4.8;
+    
     const sev = (k) => regions?.[k]?.severity || 'stable';
-    const bodyColor = '#94a3b8';
-
-    useFrame((state) => {
-        if (groupRef.current) {
-            groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 1.2) * 0.01;
-        }
-    });
-
-    const bodyMat = (
-        <meshPhysicalMaterial
-            color={bodyColor}
-            emissive="#475569"
-            emissiveIntensity={0.05}
-            roughness={0.4}
-            metalness={0.05}
-            transparent
-            opacity={0.25}
-            depthWrite={false}
-        />
-    );
 
     return (
-        <group ref={groupRef}>
-            {/* ── BODY SILHOUETTE (translucent) ── */}
+        <group position={[0, -0.2, 0]}>
+            {/* The Main High-Fidelity Image Plane */}
+            <mesh position={[0, 0, 0]}>
+                <planeGeometry args={[boardWidth, boardHeight]} />
+                <meshBasicMaterial map={texture} transparent side={THREE.DoubleSide} />
+            </mesh>
+
+            {/* Background Glow/Shadow Panel (to give it depth) */}
+            <mesh position={[0, 0, -0.05]}>
+                <planeGeometry args={[boardWidth * 1.1, boardHeight * 1.05]} />
+                <meshBasicMaterial color="#000000" transparent opacity={0.3} />
+            </mesh>
+            
+            {/* ── INTERACTIVE MAPPED HOTSPOTS ── */}
+            {/* Note: Coordinates are relative to the center of the image plane [0,0] */}
+            
             {/* Head */}
-            <mesh position={[0, 2.35, 0]}>
-                <sphereGeometry args={[0.22, 32, 32]} />
-                {bodyMat}
-            </mesh>
-            {/* Neck */}
-            <mesh position={[0, 2.05, 0]}>
-                <cylinderGeometry args={[0.06, 0.08, 0.15, 16]} />
-                {bodyMat}
-            </mesh>
-            {/* Torso upper (chest) */}
-            <mesh position={[0, 1.7, 0]}>
-                <capsuleGeometry args={[0.25, 0.35, 16, 16]} />
-                {bodyMat}
-            </mesh>
-            {/* Torso lower (abdomen) */}
-            <mesh position={[0, 1.15, 0]}>
-                <capsuleGeometry args={[0.22, 0.25, 16, 16]} />
-                {bodyMat}
-            </mesh>
-            {/* Left arm */}
-            <mesh position={[-0.42, 1.65, 0]} rotation={[0, 0, 0.25]}>
-                <capsuleGeometry args={[0.06, 0.55, 8, 8]} />
-                {bodyMat}
-            </mesh>
-            {/* Right arm */}
-            <mesh position={[0.42, 1.65, 0]} rotation={[0, 0, -0.25]}>
-                <capsuleGeometry args={[0.06, 0.55, 8, 8]} />
-                {bodyMat}
-            </mesh>
-            {/* Left leg */}
-            <mesh position={[-0.14, 0.5, 0]}>
-                <capsuleGeometry args={[0.08, 0.7, 8, 8]} />
-                {bodyMat}
-            </mesh>
-            {/* Right leg */}
-            <mesh position={[0.14, 0.5, 0]}>
-                <capsuleGeometry args={[0.08, 0.7, 8, 8]} />
-                {bodyMat}
-            </mesh>
-
-            {/* ── CLICKABLE ORGAN REGIONS (colored by severity) ── */}
-            <BodyRegion position={[0, 2.35, 0.05]} size={[0.12, 0.01, 32, 32]} regionKey="head" severity={sev('head')} onClick={onClick} label="Tete" />
-            <BodyRegion position={[0, 1.72, 0.08]} size={[0.14, 0.18, 16, 16]} regionKey="chest" severity={sev('chest')} onClick={onClick} label="Thorax" />
-            <BodyRegion position={[0, 1.15, 0.08]} size={[0.13, 0.15, 16, 16]} regionKey="abdomen" severity={sev('abdomen')} onClick={onClick} label="Abdomen" />
-            <BodyRegion position={[-0.42, 1.55, 0.05]} size={[0.05, 0.25, 8, 8]} regionKey="leftArm" severity={sev('leftArm')} onClick={onClick} label="Bras G" />
-            <BodyRegion position={[0.42, 1.55, 0.05]} size={[0.05, 0.25, 8, 8]} regionKey="rightArm" severity={sev('rightArm')} onClick={onClick} label="Bras D" />
-            <BodyRegion position={[-0.14, 0.5, 0.05]} size={[0.06, 0.35, 8, 8]} regionKey="leftLeg" severity={sev('leftLeg')} onClick={onClick} label="Jambe G" />
-            <BodyRegion position={[0.14, 0.5, 0.05]} size={[0.06, 0.35, 8, 8]} regionKey="rightLeg" severity={sev('rightLeg')} onClick={onClick} label="Jambe D" />
-
-            {/* ── Pulse rings for critical ── */}
-            {sev('chest') === 'critical' && <PulseRing position={[0, 1.72, 0.12]} color="#dc2626" />}
-            {sev('abdomen') === 'critical' && <PulseRing position={[0, 1.15, 0.12]} color="#dc2626" />}
-            {sev('head') === 'critical' && <PulseRing position={[0, 2.35, 0.1]} color="#dc2626" />}
-            {sev('leftLeg') === 'warning' && <PulseRing position={[-0.14, 0.5, 0.1]} color="#d97706" />}
+            <RegionHitbox 
+                position={[0, 1.8, 0.01]} args={[0.35, 32]} type="circle" 
+                regionKey="head" severity={sev('head')} onClick={onRegionSelect} selectedRegion={selectedRegion} 
+            />
+            
+            {/* Chest (Heart/Lungs) */}
+            <RegionHitbox 
+                position={[0, 0.9, 0.01]} args={[0.9, 0.8]} type="box" 
+                regionKey="chest" severity={sev('chest')} onClick={onRegionSelect} selectedRegion={selectedRegion} 
+            />
+            
+            {/* Abdomen (Stomach/Liver/Intestines) */}
+            <RegionHitbox 
+                position={[0, 0.1, 0.01]} args={[0.8, 0.8]} type="box" 
+                regionKey="abdomen" severity={sev('abdomen')} onClick={onRegionSelect} selectedRegion={selectedRegion} 
+            />
+            
+            {/* Right Arm (Visual Left) */}
+            <RegionHitbox 
+                position={[-0.7, 0.5, 0.01]} rotation={[0, 0, -0.2]} args={[0.3, 1.5]} type="box" 
+                regionKey="rightArm" severity={sev('rightArm')} onClick={onRegionSelect} selectedRegion={selectedRegion} 
+            />
+            
+            {/* Left Arm (Visual Right) */}
+            <RegionHitbox 
+                position={[0.7, 0.5, 0.01]} rotation={[0, 0, 0.2]} args={[0.3, 1.5]} type="box" 
+                regionKey="leftArm" severity={sev('leftArm')} onClick={onRegionSelect} selectedRegion={selectedRegion} 
+            />
+            
+            {/* Right Leg (Visual Left) */}
+            <RegionHitbox 
+                position={[-0.35, -1.2, 0.01]} args={[0.4, 1.8]} type="box" 
+                regionKey="rightLeg" severity={sev('rightLeg')} onClick={onRegionSelect} selectedRegion={selectedRegion} 
+            />
+            
+            {/* Left Leg (Visual Right) */}
+            <RegionHitbox 
+                position={[0.35, -1.2, 0.01]} args={[0.4, 1.8]} type="box" 
+                regionKey="leftLeg" severity={sev('leftLeg')} onClick={onRegionSelect} selectedRegion={selectedRegion} 
+            />
         </group>
     );
 }
 
-function Scene({ onRegionSelect, regions }) {
+/* ── Scene Setup ── */
+export function BodyViewer3D({ onRegionSelect, regions, style, selectedRegion }) {
     return (
-        <>
-            <ambientLight intensity={0.5} />
-            <directionalLight position={[5, 10, 7]} intensity={1.0} />
-            <pointLight position={[-3, 5, -3]} intensity={3} distance={15} color="#06b6d4" />
-            <pointLight position={[3, 5, -3]} intensity={3} distance={15} color="#3b82f6" />
-            <directionalLight position={[0, 2, 6]} intensity={0.4} color="#f8fafc" />
-
-            <HumanBody onClick={onRegionSelect} regions={regions} />
-
-            {/* Ground */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.15, 0]}>
-                <circleGeometry args={[1.5, 64]} />
-                <meshStandardMaterial color="#e2e8f0" roughness={1} transparent opacity={0.5} />
-            </mesh>
-
-            <OrbitControls
-                target={[0, 1.2, 0]}
-                enableDamping
-                dampingFactor={0.08}
-                minDistance={2}
-                maxDistance={8}
-                enablePan={false}
-            />
-        </>
-    );
-}
-
-function MiniScene({ onRegionSelect, regions }) {
-    return (
-        <>
-            <ambientLight intensity={0.5} />
-            <directionalLight position={[5, 10, 7]} intensity={1.0} />
-            <pointLight position={[-3, 5, -3]} intensity={3} distance={15} color="#06b6d4" />
-            <pointLight position={[3, 5, -3]} intensity={3} distance={15} color="#3b82f6" />
-
-            <HumanBody onClick={onRegionSelect} regions={regions} />
-
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.15, 0]}>
-                <circleGeometry args={[1.5, 64]} />
-                <meshStandardMaterial color="#e2e8f0" roughness={1} transparent opacity={0.5} />
-            </mesh>
-
-            <OrbitControls
-                target={[0, 1.2, 0]}
-                enableDamping
-                autoRotate
-                autoRotateSpeed={0.8}
-                minDistance={2}
-                maxDistance={8}
-                enablePan={false}
-            />
-        </>
-    );
-}
-
-export function BodyViewer3D({ onRegionSelect, regions, style }) {
-    return (
-        <Canvas
-            camera={{ position: [0, 1.3, 4], fov: 40 }}
-            gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
-            style={{ width: '100%', height: '100%', ...style }}
-        >
-            <Scene onRegionSelect={onRegionSelect} regions={regions} />
-        </Canvas>
+        <div style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-lg)', background: '#f8fafc', overflow: 'hidden', border: '1px solid var(--border-default)', ...style }}>
+            <Canvas camera={{ position: [0, 0, 5.5], fov: 45 }}>
+                <ambientLight intensity={1} />
+                <Center>
+                    <AnatomyBoard onRegionSelect={onRegionSelect} regions={regions} selectedRegion={selectedRegion} />
+                </Center>
+                {/* 2.5D Orbit - Allow side to side viewing but prevent full rotation to back */}
+                <OrbitControls 
+                    enablePan={false} 
+                    minAzimuthAngle={-Math.PI / 4} // Max 45 deg left
+                    maxAzimuthAngle={Math.PI / 4}  // Max 45 deg right
+                    minPolarAngle={Math.PI / 3}    
+                    maxPolarAngle={Math.PI / 1.5}
+                    enableZoom={true}
+                    minDistance={3}
+                    maxDistance={8}
+                />
+            </Canvas>
+        </div>
     );
 }
 
 export function BodyViewerMini({ onRegionSelect, regions, style }) {
     return (
-        <Canvas
-            camera={{ position: [0, 1.3, 5], fov: 40 }}
-            gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
-            style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-lg)', ...style }}
-        >
-            <MiniScene onRegionSelect={onRegionSelect} regions={regions} />
-        </Canvas>
+        <div style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-lg)', background: '#f8fafc', overflow: 'hidden', ...style }}>
+            <Canvas camera={{ position: [0, 0, 6.5], fov: 45 }}>
+                <ambientLight intensity={1} />
+                <Center>
+                    <AnatomyBoard onRegionSelect={onRegionSelect} regions={regions} selectedRegion={null} />
+                </Center>
+                <OrbitControls 
+                    enablePan={false} 
+                    enableZoom={false}
+                    autoRotate
+                    autoRotateSpeed={0.5}
+                    minAzimuthAngle={-Math.PI / 6}
+                    maxAzimuthAngle={Math.PI / 6}
+                />
+            </Canvas>
+        </div>
     );
 }

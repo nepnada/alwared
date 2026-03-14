@@ -227,13 +227,13 @@ function DocumentsAITab() {
             });
             const data = await res.json();
             if (data.error) {
-                alert(data.error);
+                console.warn('ECG API:', data.error);
                 setEcgAnalyzing(false);
                 return;
             }
             setEcgResult(data);
         } catch (err) {
-            alert('Erreur connexion au serveur ECG. Lancez: cd T-MECA/interface && python app.py');
+            console.error('ECG error:', err);
         }
         setEcgAnalyzing(false);
     };
@@ -426,7 +426,7 @@ function DocumentsAITab() {
                                                             const x1 = (i / sigLen) * 800, y1 = 180 - sig[i] * 160;
                                                             const x2 = ((i+1) / sigLen) * 800, y2 = 180 - sig[i+1] * 160;
                                                             const sc = cam[i] || 0;
-                                                            const color = sc > 0.6 ? '#ef4444' : sc > 0.3 ? '#f59e0b' : '#22c55e';
+                                                            const color = sc > 0.6 ? '#ef4444' : sc > 0.3 ? '#f59e0b' : '#3b82f6';
                                                             const sw = sc > 0.6 ? 3 : sc > 0.3 ? 2 : 1.5;
                                                             segs.push(<line key={`s${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={sw} />);
                                                         }
@@ -436,7 +436,7 @@ function DocumentsAITab() {
                                                 {/* Legend */}
                                                 {ecgXaiActive && (
                                                     <div style={{ display: 'flex', gap: 16, marginTop: 8, justifyContent: 'center' }}>
-                                                        <span style={{ fontSize: 10, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 3, background: '#22c55e', display: 'inline-block', borderRadius: 2 }} /> Normal</span>
+                                                        <span style={{ fontSize: 10, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 3, background: '#3b82f6', display: 'inline-block', borderRadius: 2 }} /> Normal</span>
                                                         <span style={{ fontSize: 10, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 3, background: '#f59e0b', display: 'inline-block', borderRadius: 2 }} /> Attention moderee</span>
                                                         <span style={{ fontSize: 10, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 3, background: '#ef4444', display: 'inline-block', borderRadius: 2 }} /> Attention elevee (zone diagnostique)</span>
                                                     </div>
@@ -653,8 +653,8 @@ function DocumentsAITab() {
                                                             printWin.document.write(`<!DOCTYPE html><html><head><title>Rapport Medical — ${patient.firstName} ${patient.lastName}</title><style>
                                                                 @page { size: A4; margin: 20mm; }
                                                                 body { font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.7; color: #1a1a1a; padding: 20px; }
-                                                                .header { text-align: center; border-bottom: 2px solid #0d9488; padding-bottom: 16px; margin-bottom: 20px; }
-                                                                .header h1 { font-size: 16px; color: #0d9488; margin: 0; letter-spacing: 1px; }
+                                                                .header { text-align: center; border-bottom: 2px solid #1d4ed8; padding-bottom: 16px; margin-bottom: 20px; }
+                                                                .header h1 { font-size: 16px; color: #1d4ed8; margin: 0; letter-spacing: 1px; }
                                                                 .header p { font-size: 10px; color: #666; margin: 4px 0 0; }
                                                                 .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 9px; color: #999; text-align: center; }
                                                                 .signature { margin-top: 50px; display: flex; justify-content: flex-end; }
@@ -675,7 +675,7 @@ function DocumentsAITab() {
                                                         {/* Word Export */}
                                                         <button className="btn btn-sm btn-secondary" style={{ gap: 4 }} onClick={() => {
                                                             const blob = new Blob([
-                                                                `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:'Courier New',monospace;font-size:11pt;line-height:1.7;} h1{text-align:center;color:#0d9488;font-size:14pt;border-bottom:2pt solid #0d9488;padding-bottom:10pt;} .sub{text-align:center;font-size:9pt;color:#666;} .footer{margin-top:30pt;border-top:1pt solid #ddd;padding-top:8pt;font-size:8pt;color:#999;text-align:center;} pre{white-space:pre-wrap;}</style></head><body><h1>ALWARID — RAPPORT MEDICAL</h1><p class="sub">CHU Hassan II, Fes — Systeme d'aide a la decision medicale</p><pre>${generatedReport}</pre><div class="footer">Document genere par Alwarid — ${new Date().toLocaleString('fr-FR')}</div></body></html>`
+                                                                `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:'Courier New',monospace;font-size:11pt;line-height:1.7;} h1{text-align:center;color:#1d4ed8;font-size:14pt;border-bottom:2pt solid #1d4ed8;padding-bottom:10pt;} .sub{text-align:center;font-size:9pt;color:#666;} .footer{margin-top:30pt;border-top:1pt solid #ddd;padding-top:8pt;font-size:8pt;color:#999;text-align:center;} pre{white-space:pre-wrap;}</style></head><body><h1>ALWARID — RAPPORT MEDICAL</h1><p class="sub">CHU Hassan II, Fes — Systeme d'aide a la decision medicale</p><pre>${generatedReport}</pre><div class="footer">Document genere par Alwarid — ${new Date().toLocaleString('fr-FR')}</div></body></html>`
                                                             ], { type: 'application/msword' });
                                                             const url = URL.createObjectURL(blob);
                                                             const a = document.createElement('a');

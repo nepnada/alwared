@@ -49,7 +49,7 @@ function GlycemicChart() {
                         const pct = ((d.value - range.min) / (range.max - range.min)) * 100;
                         const barH = Math.max(4, (pct / 100) * barAreaH);
                         const isHigh = d.value > 1.26;
-                        const color = isHigh ? '#dc2626' : '#16a34a';
+                        const color = isHigh ? '#dc2626' : '#2563eb';
                         return (
                             <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, width: 36 }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, color, marginBottom: 2 }}>{d.value.toFixed(2)}</span>
@@ -70,7 +70,7 @@ function GlycemicChart() {
             </div>
             {/* Legend */}
             <div style={{ marginTop: 12, display: 'flex', gap: 20, justifyContent: 'center' }}>
-                <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#16a34a', display: 'inline-block' }} /> Normal</span>
+                <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#2563eb', display: 'inline-block' }} /> Normal</span>
                 <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#dc2626', display: 'inline-block' }} /> Hyperglycemie (&gt;1.26)</span>
             </div>
         </div>
